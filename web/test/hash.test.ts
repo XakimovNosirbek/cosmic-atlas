@@ -25,7 +25,9 @@ describe('deep link', () => {
   });
   it('round-trips the star epoch in years and rejects values off the slider', () => {
     expect(parseHash(formatHash({ epochYr: -1e6 })).epochYr).toBe(-1e6);
-    expect(parseHash(formatHash({ epochYr: 1293500 / 1.0 })).epochYr).toBeUndefined(); // > 1 Myr
+    expect(parseHash(formatHash({ epochYr: 1293500 })).epochYr).toBe(1294000);
+    expect(parseHash(formatHash({ epochYr: -1e8 })).epochYr).toBe(-1e8);
+    expect(parseHash(formatHash({ epochYr: 1.5e8 })).epochYr).toBeUndefined(); // > 100 Myr
     expect(parseHash(formatHash({ epochYr: 12345.678 })).epochYr).toBe(12350);
     expect(formatHash({ epochYr: 0 })).toBe('');
     expect(parseHash('#ty=abc').epochYr).toBeUndefined();

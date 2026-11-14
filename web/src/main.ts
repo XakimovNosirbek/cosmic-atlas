@@ -44,6 +44,7 @@ import { SOLAR_LABEL_MAX, SolarSystem, TimeBar, flyTargetForLatLon, observerGala
 // Loaded after the catalogues (dynamic import): nothing of it is needed for the first frame.
 import type { BlackHoleFeature } from './blackhole';
 import { StarEpoch } from './solar/epoch';
+import { orbitConfig } from './orbits/gpu';
 import { formatEpoch } from './solar/timebar';
 // --- GW hook (web/src/render/gwVolumes.ts, web/src/objects/gw.ts): localisation volumes, card note and links
 import { GwVolumes } from './render/gwVolumes';
@@ -186,6 +187,8 @@ export class App {
     }
     const be = (this.renderer as unknown as { backend: { isWebGPUBackend?: boolean } }).backend;
     this.backend = be.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
+    // star orbits: one compute pass per epoch change on WebGPU (?orbits=vertex: in the vertex shader, as on WebGL2)
+    orbitConfig.compute = this.backend === 'WebGPU' && new URLSearchParams(location.search).get('orbits') !== 'vertex';
     this.renderer.setClearColor(0x000000, 0);
     this.camera.up.set(0, 0, 1);
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -786,6 +789,8 @@ export class App {
     this.pv.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.pv);
     const st = this.streamer.update({ camPos: cam, frustum: this.frustum, pxPerRad, frame: this.frame, dt });
+    const orbitPasses = this.streamer.orbitKernels();
+    if (orbitPasses.length) void this.renderer.compute(orbitPasses);
 
     // adaptive near/far from the nearest / farthest drawn node (contract section 5)
     const nearest = Math.min(st.nearestPc, D);

@@ -86,19 +86,19 @@ describe('velocity stream (.vel.bin)', () => {
 });
 
 describe('star epoch slider', () => {
-  it('has a "now" dead zone and spans 100 yr … 1 Myr logarithmically on both sides', () => {
+  it('has a "now" dead zone and spans 100 yr … 100 Myr logarithmically on both sides', () => {
     expect(sliderToMyr(0)).toBe(0);
     expect(sliderToMyr(SLIDER_DEAD)).toBe(0);
-    expect(sliderToMyr(SLIDER_MAX)).toBeCloseTo(1, 12);
-    expect(sliderToMyr(-SLIDER_MAX)).toBeCloseTo(-1, 12);
+    expect(sliderToMyr(SLIDER_MAX)).toBeCloseTo(100, 10);
+    expect(sliderToMyr(-SLIDER_MAX)).toBeCloseTo(-100, 10);
     expect(sliderToMyr(SLIDER_DEAD + 1e-9) * 1e6).toBeCloseTo(MIN_YR, 3);
     // equal steps per decade
     const mid = (SLIDER_DEAD + SLIDER_MAX) / 2;
     expect(sliderToMyr(mid) * 1e6).toBeCloseTo(Math.sqrt(MIN_YR * MAX_YR), 3);
     for (const yr of EPOCH_TICKS) if (yr) expect(sliderToMyr(myrToSlider(yr / 1e6)) * 1e6).toBeCloseTo(yr, 3);
     expect(myrToSlider(0)).toBe(0);
-    expect(myrToSlider(5)).toBe(SLIDER_MAX);
-    expect(clampMyr(-7)).toBe(-1);
+    expect(myrToSlider(500)).toBe(SLIDER_MAX);
+    expect(clampMyr(-700)).toBe(-100);
     expect(clampMyr(NaN)).toBe(0);
   });
 
@@ -116,9 +116,9 @@ describe('star epoch slider', () => {
     e.onChange(() => n++);
     e.set(0.5);
     e.set(0.5);
-    e.set(3);
+    e.set(300);
     expect(n).toBe(2);
-    expect(e.myr).toBe(1);
+    expect(e.myr).toBe(100);
     expect(e.active).toBe(true);
     expect(rvFade(0, 10)).toBe(1);
     expect(rvFade(0.001, 100)).toBeGreaterThan(0.99);

@@ -88,6 +88,14 @@
       ]
     },
     {
+      "id": "synthetic-stars-moving",
+      "title": "Synthetic moving stars",
+      "path": "tiles/synthetic-stars-moving",
+      "visible": false,
+      "colorMode": "star",
+      "dev": true
+    },
+    {
       "id": "synthetic-galaxies",
       "title": "Synthetic galaxies",
       "path": "tiles/synthetic-galaxies",
