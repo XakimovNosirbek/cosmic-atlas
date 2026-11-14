@@ -33,6 +33,12 @@ const SQRT3 = Math.sqrt(3);
 export const FADE_S = 0.35;
 /** at most this many drawn nodes get their pick records loaded for the uncertainty view */
 export const UNC_NODE_BUDGET = 32;
+/**
+ * orbit work per epoch change (points x leapfrog steps) above which the slider first shows a
+ * coarse track (fewer, longer steps) and the full one ~0.2 s after it stops moving: 4 M stars at
+ * 128 steps take ~30 ms of GPU time on an Apple M4 Pro, too long for every frame of a drag
+ */
+export const DRAG_POINT_STEPS = 3.2e7;
 
 export enum NodeState {
   Unloaded = 0,
@@ -294,6 +300,8 @@ export class Streamer {
   track: GpuTrack | null = null;
   /** bumped on every epoch change; a node's `orb` buffer is current when its orbVersion matches */
   private trackVersion = 0;
+  /** the full-step track, while a coarse one is shown during a drag (refineOrbits() swaps it in) */
+  private fineTrack: GpuTrack | null = null;
   /**
    * a subtree may be drawn as a blob only when its light is unresolved: 2 × RMS radius projects to at
    * most this many device px. Larger subtrees are queued for loading instead; if the budget does not
@@ -353,10 +361,38 @@ export class Streamer {
   setEpoch(myr: number) {
     if (myr === this.epoch) return;
     this.epoch = myr;
-    this.track = gpuTrack(myr);
+    const fine = gpuTrack(myr);
+    this.fineTrack = null;
+    this.track = fine;
+    const pts = this.movingPoints();
+    if (fine && pts * fine.n > DRAG_POINT_STEPS) {
+      // ≥ 8 steps: h ≤ 12.5 Myr keeps leapfrog stable for the ~80 Myr vertical oscillation (ν h ≈ 1)
+      const n = Math.max(8, Math.floor(DRAG_POINT_STEPS / pts));
+      if (n < fine.n) {
+        this.track = gpuTrack(myr, n, Math.min(n, fine.n));
+        this.fineTrack = fine;
+      }
+    }
     this.trackVersion++;
     setOrbitTrack(this.track);
     for (const L of this.layers) L.uniforms.dtPc.value = myr * PC_PER_KMS_MYR;
+  }
+
+  /** after a drag: show the full-step orbits if a coarse track is up; true when something changed */
+  refineOrbits(): boolean {
+    if (!this.fineTrack) return false;
+    this.track = this.fineTrack;
+    this.fineTrack = null;
+    this.trackVersion++;
+    setOrbitTrack(this.track);
+    return true;
+  }
+
+  /** stars of the drawn nodes that carry velocities (the orbit work of one epoch change) */
+  private movingPoints(): number {
+    let n = 0;
+    for (const t of this.loaded) if (t.velData && t.points?.visible) n += t.meta.count;
+    return n;
   }
 
   /** does this node need its velocity stream to be drawn honestly at the current epoch? */
@@ -378,9 +414,10 @@ export class Streamer {
    * WebGPU orbit passes to run before this frame is drawn: every drawn moving node whose `orb`
    * buffer is not yet at the current epoch (main.ts hands them to renderer.compute in one call)
    */
-  orbitKernels(): THREE.ComputeNode[] {
+  orbitKernels(all = false): THREE.ComputeNode[] {
     const out: THREE.ComputeNode[] = [];
     if (!orbitConfig.compute || !this.track) return out;
+    if (all) this.trackVersion++;
     for (const n of this.loaded) {
       if (!n.orb || !n.points?.visible || !this.moving(n) || n.orbVersion === this.trackVersion) continue;
       out.push(n.orb.kernel);

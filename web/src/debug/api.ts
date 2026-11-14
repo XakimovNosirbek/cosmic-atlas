@@ -239,6 +239,28 @@ export function installDebugApi(app: App) {
     /** star epoch, Myr from now (the 4D time slider) */
     setEpoch: (myr: number) => app.epoch.set(myr),
     epoch: () => app.epoch.myr,
+    /**
+     * wall time of one orbit compute pass over every drawn moving node (WebGPU), median of `runs`:
+     * dispatch + wait for the GPU queue; points and steps for the record
+     */
+    timeOrbitPass: async (runs = 5) => {
+      const dev = (app.renderer as unknown as { backend: { device?: GPUDevice } }).backend.device;
+      if (!dev) return null;
+      const ms: number[] = [];
+      let points = 0;
+      for (let k = 0; k < runs; k++) {
+        await dev.queue.onSubmittedWorkDone();
+        const passes = app.streamer.orbitKernels(true);
+        if (!passes.length) return null; // vertex-shader path (WebGL2, ?orbits=vertex)
+        points = passes.reduce((a, c) => a + ((c as unknown as { count: number }).count ?? 0), 0);
+        const t0 = performance.now();
+        await app.renderer.computeAsync(passes);
+        await dev.queue.onSubmittedWorkDone();
+        ms.push(performance.now() - t0);
+      }
+      ms.sort((a, b) => a - b);
+      return { medianMs: ms[Math.floor(ms.length / 2)], minMs: ms[0], points, steps: app.streamer.track?.n ?? 0 };
+    },
     /** leapfrog steps the shader runs per point at this epoch (orbits/gpu.ts) */
     orbitSteps: () => app.streamer.track?.n ?? 0,
     /**

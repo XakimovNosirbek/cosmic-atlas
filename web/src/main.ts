@@ -143,6 +143,7 @@ export class App {
   epoch = new StarEpoch();
   private epochRefreshT = 0;
   private epochRefreshTimer = 0;
+  private orbitRefineTimer = 0;
   /** catalogue labels that sit at today's position (hidden while the epoch is far from now) */
   private epochLabels: LabelItem[] = [];
   private solarInfoT = 0;
@@ -1440,6 +1441,11 @@ export class App {
   /** the slider moved: shader offset, labels, URL, and the open info card (throttled to ~8 Hz) */
   private onEpoch() {
     this.streamer.setEpoch(this.epoch.myr);
+    // big layers show a coarse orbit track while the slider moves; the full one once it rests
+    window.clearTimeout(this.orbitRefineTimer);
+    this.orbitRefineTimer = window.setTimeout(() => {
+      if (this.streamer.refineOrbits()) this.dirty = true;
+    }, 200);
     this.applyEpochLabels();
     this.dirty = true;
     this.scheduleHash();

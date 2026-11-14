@@ -19,7 +19,7 @@ const F = JSON.parse(readFileSync(resolve(__dirname, 'fixtures/orbits/galpy_mw20
   gl710: { tMyr: number; dPc: number; linear: { tMyr: number; dPc: number } };
   sun: { periodMyr: number; rMin: number; rMax: number; zMax: number; vcSun: number };
 };
-const dist = (a: readonly number[], b: readonly number[]) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const dist = (a: ArrayLike<number>, b: ArrayLike<number>) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const stars = F.bodies.slice(1);
 
 describe('MWPotential2014 (potential.ts) against galpy', () => {
@@ -207,7 +207,8 @@ describe('GPU recipe (gpuDisplacement, the shader\'s twin) against the CPU integ
     const t = 37.5;
     const tr = gpuTrack(t)!;
     for (const s of sample.slice(0, 20)) {
-      const st = body(...Object.values(helioToGc(s.p, s.v)) as [number[], number[]]);
+      const g = helioToGc(s.p, s.v);
+      const st = body(g.x, g.v);
       const sun = body(SUN_X, SUN_V);
       leapfrog(st, tr.h, tr.n);
       leapfrog(sun, tr.h, tr.n);
