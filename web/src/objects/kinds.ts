@@ -33,9 +33,22 @@ export const KINDS: Record<string, KindInfo> = {
   dwarf_planet: { doc: 'solar-system',          label: 'kind.dwarf_planet', color: '#bdb3a3' },
   moon:         { doc: 'moon',                  label: 'kind.moon',         color: '#cfcfcf' },
   spacecraft:   { doc: 'spacecraft',            label: 'kind.spacecraft',   color: '#e8e8e8' },
+  // named places on the Moon and Mars (IAU gazetteer, landing sites); only labelled close to the body
+  surface_feature: { doc: 'moon',               label: 'kind.surface_feature', color: '#e6dccb', minScale: 0, maxScale: 0.3 },
+  landing_site: { doc: 'moon',                  label: 'kind.landing_site', color: '#ffd27a', minScale: 0, maxScale: 0.3 },
+  // small bodies (MPC orbits, src/solar/smallbodies.ts) and Earth satellites (CelesTrak, satellites.ts)
+  asteroid:     { doc: 'asteroid-belt',         label: 'kind.asteroid',     color: '#c8b48e', minScale: 0, maxScale: 1.5e-3 },
+  comet:        { doc: 'comet',                 label: 'kind.comet',        color: '#78f0e2', minScale: 0, maxScale: 1.5e-3 },
+  satellite:    { doc: 'satellite',             label: 'kind.satellite',    color: '#ffe2a8', minScale: 0, maxScale: 2e-7 },
   message:      { doc: 'interstellar-message',  label: 'kind.message',      color: '#ffd1f0', minScale: 0, maxScale: 1000 },
   seti_signal:  { doc: 'seti',                  label: 'kind.seti_signal',  color: '#ffd1f0', minScale: 0, maxScale: 1e4 },
   model:        { doc: 'milky-way',             label: 'kind.model',        color: '#b9c4d6' },
+  // gravitational-wave mergers: 40 Mpc to ~3.5 Gpc comoving; the label marks a localisation volume, not a point
+  gw_event:     { doc: 'gravitational-waves',   label: 'kind.gw_event',     color: '#8fb8ff', minScale: 1e6, maxScale: 3e10 },
+  // multi-messenger (src/messengers): hosts and sources out to ~3.4 Gpc; the CMB only from beyond the cosmic web
+  frb:          { doc: 'fast-radio-burst',      label: 'kind.frb',          color: '#ff9ad8', minScale: 1e6, maxScale: 2e10 },
+  neutrino:     { doc: 'neutrino',              label: 'kind.neutrino',     color: '#8ff3ff', minScale: 1e6, maxScale: 2e10 },
+  cmb:          { doc: 'cmb',                   label: 'kind.cmb',          color: '#f2c9a0', minScale: 6e9 },
   // the viewer's own place on Earth (Show me); only drawn within ~0.1 AU
   here:         { doc: 'earth',                 label: 'kind.here',         color: '#ffd27a', minScale: 0, maxScale: 5e-7 },
 };
@@ -76,9 +89,9 @@ export function kindFromOtype(otype: string | undefined, fallback: string): stri
   if (/^(SNR|SR\?)$/.test(o)) return 'snr';
   if (/^(PN|PN\?|HII|RNe|EmO|ISM|MoC|GNe|DNe|BNe|SFR)$/.test(o)) return 'nebula';
   if (/^(OpC|GlC|Cl\*|As\*|C\?\*|Gl\?)$/.test(o)) return 'cluster';
-  if (/^(BH|BH\?|XB\*|HXB|LXB)$/.test(o)) return 'black_hole';
-  if (/^(Pl|Pl\?)$/.test(o)) return 'exoplanet';
+  if (/^(BH|BH\?|XB\*|HXB|LXB)$/.test(o)) return 'black_hole';  if (/^(Pl|Pl\?)$/.test(o)) return 'exoplanet';
   if (/^(ClG|GrG|CGG|SCG|PCG)$/.test(o)) return 'galaxy';
+  if (o === 'FRB') return 'frb';
   return fallback;
 }
 

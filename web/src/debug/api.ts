@@ -9,6 +9,8 @@ import { radecDistToGal, type Vec3 } from '../math/frames';
 import { PC_PER_KMS_MYR, readExtRecord } from '../tiles/format';
 import { searchCatalog } from '../data/resolve';
 import { flyTargetForLatLon } from '../solar';
+import type { Satellites } from '../solar/satellites';
+import type { SmallBodies } from '../solar/smallbodies';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -63,6 +65,36 @@ export function installDebugApi(app: App) {
       return !!e;
     },
     setSky: (on: boolean) => app.setLayerVisible(app.skyCfg?.id ?? 'gaia-sky', on),
+    // --- Messengers hook (captures / tests): CMB shell, sky background, FRB and neutrino markers
+    messengers: {
+      state: () => app.msg.debug(),
+      /** sky background chooser: 'gaia' | 'erosita' | 'planck857'; resolves once the image is shown */
+      setBackground: (id: string) => app.msg.bg?.set(id) ?? Promise.resolve(false),
+      /** wait for the CMB texture (it loads lazily, once the camera nears the shell) */
+      loadCmb: () => app.msg.cmb?.load() ?? Promise.resolve(),
+      /** a catalogue entry's position (pc), for views centred on it */
+      entryXyz: (name: string) => app.findEntry(name)?.xyz?.slice() ?? null,
+      /** CSS-px screen position of a catalogue entry or sky-marker entry (direction-only ones at infinity) */
+      screenOf: (name: string) => {
+        const e = app.findEntry(name);
+        if (!e) return null;
+        const cam = app.nav.camPos();
+        if (e.xyz) return app.project(e.xyz, cam);
+        if (e.ra === undefined || e.dec === undefined) return null;
+        const d = radecDistToGal(e.ra, e.dec, 1e10);
+        return app.project([cam[0] + d[0], cam[1] + d[1], cam[2] + d[2]], cam);
+      },
+      /**
+       * the sky in direction (ra, dec) as seen from 1 pc out along it (past the Solar System, the
+       * Sun behind the camera; parallax of the sky markers is nil), vertical field fovDeg
+       */
+      lookAt: (ra: number, dec: number, fovDeg = 55) => {
+        const d = radecDistToGal(ra, dec, 1);
+        app.camera.fov = fovDeg;
+        app.camera.updateProjectionMatrix();
+        app.nav.setView({ focus: [2 * d[0], 2 * d[1], 2 * d[2]], dist: 1, yaw: Math.atan2(-d[1], -d[0]), pitch: Math.asin(-d[2]) });
+      },
+    },
     // --- Solar System hook (captures / tests)
     solar: {
       entries: () => app.solar.entries.map((e) => ({ name: e.name, alt: e.alt, kind: e.kind, distAU: e.dist_pc / 4.84813681109536e-6 })),
@@ -91,6 +123,87 @@ export function installDebugApi(app: App) {
         app.nav.setView(flyTargetForLatLon(lat, lon, app.solar.clock.now(), altKm));
         app.solar.attach('earth');
       },
+      // --- Surface hook (captures / tests): tile cache, feature views
+      surface: {
+        stats: () => ({ cache: { ...app.solar.tileCache.stats }, moon: { ...app.solar.surfaces.get('moon')!.stats }, mars: { ...app.solar.surfaces.get('mars')!.stats } }),
+        idle: () => app.solar.tileCache.idle,
+        log: () => [...app.solar.tileCache.log],
+        setMode: (body: 'moon' | 'mars', mode: 'photo' | 'relief') => app.solar.setSurfaceMode(body, mode),
+        /** straight down onto (lat, east lon) of the Moon or Mars from altKm, instantly */
+        lookDown: (body: 'moon' | 'mars', lat: number, lon: number, altKm: number) => {
+          const v = app.solar.surfaceView(body, lat, lon, altKm);
+          app.solar.attach(null);
+          app.nav.setView(v);
+          app.solar.attach(body);
+        },
+        /** Sun elevation (deg) at a surface point now */
+        sunElev: (body: 'moon' | 'mars', lat: number, lon: number) => app.solar.sunElevation(body, lat, lon),
+        feature: (name: string) => {
+          const e = app.solar.featureEntries.find((x) => x.name === name || x.alt.includes(name));
+          if (!e) return null;
+          const f = app.solar.featureOf(e)!;
+          return { name: e.name, body: f.body, lat: f.lat, lon: f.lon, diam_km: f.diam_km };
+        },
+        labels: () => [...document.querySelectorAll<HTMLElement>('.label')].filter((el) => el.style.visibility === 'visible' && +el.style.opacity > 0.5).map((el) => el.textContent),
+      },
+    },
+    // --- Dust hook (captures / tests)
+    dust: {
+      state: () => ({ status: app.dust.status, active: app.dust.active, amount: app.dust.amount, mode: app.dust.mode, quality: app.dust.quality, visible: app.dust.visible,
+        trace: app.dust.shader?.traceTex?.renderTarget ? [app.dust.shader.traceTex.renderTarget.width, app.dust.shader.traceTex.renderTarget.height] : null }),
+      setMode: (m: 'auto' | 'absorb' | 'glow') => app.dust.setMode(m),
+      setQuality: (q: 'low' | 'medium' | 'high') => app.dust.setQuality(q),
+      /** benchmarks: raw march sample count (0 = only the extra scene target and the lookups) */
+      setSteps: (n: number) => {
+        if (app.dust.shader) app.dust.shader.uSteps.value = n;
+        app.dirty = true;
+      },
+      pickAt: (x: number, y: number) => (app.showDustAt(x, y, false) ? app.selection?.title ?? null : null),
+    },
+    // --- Small bodies + satellites hook (captures / tests)
+    extras: {
+      /** per layer: visibility, fade, loaded classes and drawn counts */
+      stats: () => app.solar.extras.map((x) => {
+        const sb = x as unknown as SmallBodies;
+        const sat = x as unknown as Satellites;
+        return {
+          id: x.cfg.id, visible: x.visible, groupVisible: x.group.visible, entries: x.entries.length,
+          ...(sb.classes ? { classes: Object.fromEntries([...sb.classes].map(([k, c]) => [k, { state: c.state, count: c.meta.count, drawn: c.pts?.geometry.instanceCount ?? 0 }])), drawn: sb.drawnCount() } : {}),
+          ...(sat.sats ? { satellites: sat.sats.length, snapshot: sat.snapshotUtc } : {}),
+          meta: x.metaText(),
+        };
+      }),
+      /** draw at most n objects per orbit class (brightest first); 0 = all */
+      setCap: (n: number) => {
+        (app.solar.extra('small-bodies') as unknown as SmallBodies | undefined)?.setCap(n);
+        app.dirty = true;
+      },
+      /** fly (instantly) to a small body / satellite by name, then follow it */
+      go: (name: string, opts: { dist?: number; yawDeg?: number; pitchDeg?: number } = {}) => {
+        const e = app.solar.entries.find((x) => (x.name === name || x.alt.includes(name)) && (x.solar.type === 'minor' || x.solar.type === 'sat'));
+        if (!e) return false;
+        const v = { ...app.solar.viewFor(e) };
+        if (opts.dist) v.dist = opts.dist;
+        if (opts.yawDeg !== undefined) v.yaw = (opts.yawDeg * Math.PI) / 180;
+        if (opts.pitchDeg !== undefined) v.pitch = (opts.pitchDeg * Math.PI) / 180;
+        app.showSolar(e);
+        app.nav.setView(v);
+        app.solar.attachEntry(e);
+        app.dirty = true;
+        return true;
+      },
+      /** CPU pick at css px, with its wall time */
+      pick: (x: number, y: number) => {
+        const t0 = performance.now();
+        const e = app.solar.pickAt(x, y);
+        return { name: e?.name ?? null, kind: e?.kind ?? null, ms: performance.now() - t0 };
+      },
+      /** screen position (css px) of an entry */
+      screenOf: (name: string) => {
+        const e = app.solar.entries.find((x) => x.name === name || x.alt.includes(name));
+        return e ? app.project(e.xyz, app.nav.camPos()) : null;
+      },
+      info: () => ({ title: $('info-title')?.textContent, rows: [...document.querySelectorAll('#info-rows dt')].map((dt) => `${dt.textContent}: ${dt.nextElementSibling?.textContent}`), note: $('info-note')?.textContent }),
     },
     // --- Black hole hook (captures / tests)
     bh: { ...(bh?.debugApi() ?? {}), experience: (name: string) => {

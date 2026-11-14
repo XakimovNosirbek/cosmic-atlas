@@ -157,10 +157,10 @@ row or cell that could not be confirmed says **unverified** and gives the reason
 | **astronomy-engine 2.1.19** (npm, 2023-12-14) | Live Sun, Moon, planets, Pluto | 8 planets + Moon + Pluto | 1.84 MB unpacked | MIT | npm `astronomy-engine` | n/a (bundled) | yes | **P0** | **Not fitted to a JPL DE:** truncated VSOP87, accuracy "±1 arcminute" (≈ 43,500 km at 1 AU), tested against NOVAS/DE405 and Horizons. docs/content-contract.md calls it "JPL-derived"; that should be corrected |
 | JPL DE440 / DE441 / DE442 | Reference ephemeris | DE440/442: 1549–2650; DE441: −13200 to +17191 | de440 119.8 MB; de440s 32.7 MB; de441 2 × 1.65 GB | No licence on eph_export (unverified) | naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/ | none | yes | P2 | Only if 1′ is not enough. Precompute at build |
 | **JPL Horizons API** | Spacecraft vectors (Voyager 1/2, Pioneers, New Horizons) | ≤ 10,000 epochs per query | small JSON | No licence, rate or CORS statement | https://ssd.jpl.nasa.gov/api/horizons.api | **none** | yes | **P0** (build-time snapshot) | The browser cannot call it |
-| MPC MPCORB.DAT (daily) | All asteroid orbits | **1,580,451** records (arithmetic from size; = 895,910 numbered + 684,541 unnumbered) | 320.8 MB; gz 94.2 MB | No terms on the page. Legacy CBAT/MPC policy: "may not be redistributed"; "collections of orbital elements are copyrighted" (applicability today unverified) | https://minorplanetcenter.net/iau/MPCORB/MPCORB.DAT.gz | `*` | yes | P1 | Licence risk if re-hosted whole |
-| MPC comets / Distant.txt | Comets; TNOs/Centaurs | AllCometEls 4,666 lines; Distant 9,374 (8,317 with a > 30.07 AU) | 789 kB; 1.9 MB | as MPCORB | `…/iau/MPCORB/AllCometEls.txt`, `Distant.txt` | `*` | yes | P1 | |
+| MPC MPCORB.DAT (daily) | All asteroid orbits | **1,580,451** records counted 2026-11-14 (895,910 numbered + 684,541 unnumbered; 1,578,595 at the standard epoch K2669 = 2026-06-09 TT) | 320,833,904 B; gz 94,248,709 B (file time 2026-11-13 13:48 UTC) | **Terms are in the file header** (checked 2026-11-14): "Software programs may include this datafile amongst their datasets, as long as this header is included (it is acceptable if it is contained in a file separate from the actual data) and that proper attribution to the Minor Planet Center is given … Information on how to obtain updated copies of the datafile must also be included." The MPCORB web page itself states no terms. The older CBAT catalogue policy ("may not be redistributed") names other products, not MPCORB | https://minorplanetcenter.net/iau/MPCORB/MPCORB.DAT.gz | `*` | yes | **built** | `scripts/build_small_bodies.py` re-packs it (data/tiles/small-bodies/, 45.97 MB of orbits + 10.94 MB designations + 1.03 MB names) and ships the header verbatim as `MPCORB_HEADER.txt` with credit and the download URL |
+| MPC comets / Distant.txt | Comets; TNOs/Centaurs | AllCometEls 4,666 lines (counted 2026-11-14); Distant 9,374, all of them inside MPCORB (9,356 classed Centaur/TNO by our a/q limits) | 789,178 B; 1,902,922 B | as MPCORB (AllCometEls has no header of its own) | `…/iau/MPCORB/AllCometEls.txt`, `Distant.txt` | `*` | yes | **built** | Comets in `small-bodies/comet.bin` (ellipse, parabola, hyperbola) |
 | **JPL SBDB Query API** | Same population via JPL | asteroids 1,580,494; comets 4,088; TNO 8,340 (live counts) | paged JSON | No licence stated (unverified) | https://ssd-api.jpl.nasa.gov/sbdb_query.api | none | yes | P1 (build time) | **All of them can render as points.** 6 × f32 elements = 37.9 MB; quantised 16 B/object = **25.3 MB**. Kepler solve on the GPU (Δt computed in double on the CPU). A cleaner licence path than MPC |
-| CelesTrak GP (OMM JSON, GROUP=active) | Earth satellites | 16,896 objects | 7.1 MB | No licence found. Rules: new data "once every 2 hours"; repeat requests get 403; "limit on HTTP errors … of 50 in a 2-hour period" | https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json | `*` | yes (SGP4) | P1 | Re-host from a scheduled job (≥ 2 h). **Never fetch per viewer** |
+| CelesTrak GP (OMM JSON, GROUP=active, stations, starlink) | Earth satellites | 16,896 objects (11,191 Starlink, 18 station modules) on 2026-11-14 06:40 UTC | 7,114,929 B (active) | No licence text found. Usage policy (updated 2026-11-12): "only download data once per update" (GP: every 2 hours), enforced for the Active and Starlink lists; stop on any non-200 | https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json | `*` (re-checked 2026-11-14) | yes (SGP4) | **built** | `scripts/build_satellites.py` snapshot (gp.json 2.51 MB) + JWST from Horizons. A browser could fetch it (CORS `*`) but per-viewer fetches break the policy, so the viewer reads the snapshot; rebuild at most every 2 h |
 | Space-Track | Same GP data | — | — | "not to transfer any data … without prior express approval"; basic SSA has "blanket approval … conditioned on appropriate citation" | account | not tested | yes | P2 | |
 | **NASA GIBS BlueMarble_NextGeneration** | Earth globe base | z0–8 (~500 m) | 14.6 kB tile | No licence; GIBS acknowledgement requested; NASA media "generally are not subject to copyright in the United States" | https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_NextGeneration/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg | `*` | n/a | **P0** | |
 | GIBS VIIRS NOAA-20 true colour (daily) | Today's Earth | z0–9 (~250 m), 2022-01-14 → today | 22 kB tile | as GIBS | `…/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/{date}/GoogleMapsCompatible_Level9/…` | `*` | n/a | P1 | **Returns 404 when a Range header is sent**; plain GET works |
@@ -178,6 +178,33 @@ row or cell that could not be confirmed says **unverified** and gives the reason
 | EOX Sentinel-2 cloudless 2024 | ~10 m Earth imagery | z14 confirmed | 17 kB tile | "Creative Commons Attribution-NonCommercial-ShareAlike 4.0"; attribution "EOxCloudless … (Contains modified Copernicus Sentinel data <year>)" | https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/{z}/{y}/{x}.jpg | echoes origin | n/a | P1 | NC-SA fits our non-commercial status. The 2016 layer returned 404 |
 | OpenStreetMap tiles | Street map | z0–19 | 6.7 kB | "Bulk download ('scrape') … prohibited"; attribution required | tile.openstreetmap.org | `*` | n/a | P2 | Heavy use forbidden |
 | **Solar System Scope textures** | Low-res fallback for every body | 2k/8k per body | Earth 8k 4.57 MB; Mars 2k 0.75 MB | "Attribution 4.0 International … for any purpose, even commercially" | solarsystemscope.com/textures/download/… | **none** | n/a | **P0** (re-host) | Ceres, Haumea, Makemake and Eris maps are **"fictional"**; do not use them |
+
+### Planetary surfaces in use (web/src/solar/surface, checked 2026-11-14)
+
+Every endpoint below was fetched with `curl -H 'Origin: https://example.org'` on 2026-11-14 and
+answered `Access-Control-Allow-Origin: *`. Tile matrices are from each WMTS capabilities document
+(Trek) or the MapServer JSON (CTX): all are geographic, origin (−180°, +90°), level 0 = 2 × 1 tiles
+of 180°, rows from the north. Trek tiles are 256 px, CTX tiles 512 px over the same geometry.
+
+| layer | levels used | finest | licence / credit (what was actually found) | notes |
+|---|---|---|---|---|
+| Moon LRO WAC global mosaic v2, 303 ppd (`LRO_WAC_Mosaic_Global_303ppd_v02`, jpg) | 0–8 | ~83 m/px at level 8 | LROC is NASA/GSFC/Arizona State University; NASA media are not copyrighted in the US. **No terms page on trek.nasa.gov** (its `textAbout.html` has none) | default Moon imagery |
+| Moon LOLA colour-shaded relief v6, 256 ppd (`LRO_LOLA_ClrShade_Global_256ppd_v06`, png) | 0–6 | ~118 m/px | NASA/GSFC (LOLA); same Trek caveat | "Show relief" button |
+| Mars Viking MDIM 2.1 colour mosaic, 232 m (`Mars_Viking_MDIM21_ClrMosaic_global_232m`, jpg) | 0–7 | ~325 m/px at level 7 | NASA/JPL/USGS; same Trek caveat | colour of Mars at every level |
+| Mars MOLA colour-shaded relief, 463 m (`Mars_MGS_MOLA_ClrShade_merge_global_463m`, jpg) | 0–7 | ~325 m/px | NASA/JPL/GSFC; same Trek caveat | "Show relief" button |
+| Mars MRO CTX global mosaic beta01, Murray Lab (Esri cache `astro.arcgis.com/…/OnMars/CTX/MapServer/tile/{z}/{y}/{x}`, greyscale png) | 5–12 | ~5 m/px at level 12 | murray-lab.caltech.edu/CTX (read 2026-11-14; the site's TLS chain is incomplete, fetched with `curl -k`): "The Murray Lab/Caltech grants free use of the V01 version of the mosaic for all purposes. Data credit should be to: NASA/JPL/MSSS/The Murray Lab." The Esri cache serves **beta01**, whose free-use grant is quoted in the HiPS properties above. Esri's own hosting terms: not checked | some tiles answer **HTTP 500 without a CORS header** (e.g. level 11 near Gale, 2026-11-14 11:30; the same tile answered 200 at 11:57). The viewer retries twice, then falls back to the coarser CTX tile |
+
+**Elevation: none.** No DEM tile service with CORS was found for the Moon: Trek lists
+`LRO_LOLA_DEM_Global_128ppd_v04` only as a 2.2 GB raw download (search API `TrekServices/ws/index/eq/searchItems`,
+`RASTER_TYPE raw`), and `…/LRO_LOLA_DEM_Global_256ppd_v06/1.0.0/WMTSCapabilities.xml` is a 404; the PADC
+HiPS mirror has only a colour hillshade for the Moon. For Mars, the only browser-reachable DEM is the PADC
+HiPS `CDS_P_Mars_MGS-MOLA-DEM` (FITS, 16-bit, order 4 × 512 px, CORS `*`, "Public domain, Please cite
+authors"): a HEALPix pyramid, not wired up. The surface is therefore a sphere with flat imagery.
+
+**Names:** IAU/USGS Gazetteer of Planetary Nomenclature centre-point shapefiles
+(`asc-planetarynames-data.s3.us-west-2.amazonaws.com/{MOON,MARS}_nomenclature_center_pts.zip`,
+Last-Modified 2026-11-13; USGS public domain), Wikidata ru/uz labels via P2824 (CC0), Apollo LM
+positions from NSSDCA. Built by `scripts/build_planet_features.py`.
 
 ## 5. Sky imagery and backgrounds
 
@@ -199,6 +226,35 @@ The notes column opens with **Embeddable** (in a public non-commercial site): ye
 | Planck HFI colour (353/545/857 GHz dust) | Dust sky | order 3, 128 px | not listed | "EUROPEAN SPACE AGENCY. ALL RIGHTS RESERVED" | alasky only (down); ESAVO HFI single bands listed (not tested) | 404 | no | P2 | Embeddable: with credit |
 | Gaia DR3 density (CDS/P/DM/I/355/gaiadr3) | Star-density map | order 7 | 287 GB | "ESA/Gaia mission/DPAC" | alasky only (down) | 404 | no | P2 | We already have our own |
 | Mellinger colour | Pretty optical Milky Way | order 4 | 36.7 MB | "Copyright 2000-2017 Axel Mellinger. All rights reserved"; educational use "will require payment of a license fee" | alasky only (down) | 404 | no | P2 | **Embeddable: no** (needs a licence) |
+
+### Built 2026-11-14 (CMB, sky backgrounds, FRBs, neutrinos)
+
+What the multi-messenger phase actually used, with what was measured while building it:
+
+- **Planck PR3 SMICA** (IRSA, `COM_CMB_IQU-smica_2048_R3.00_full.fits`, 2,013,312,960 B, size
+  matched): column `I_STOKES_INP`; residual monopole 0.16 µK and dipole 3.5 µK removed; inpainted
+  area 1.5 % of the sky; rms 106.8 µK outside TMASK. Baked by `scripts/build_cmb.py` into a
+  4096 × 2048 equirectangular texture (2.9 MB, ±300 µK, Moreland cool-warm). IRSA serves ~0.36 MB/s
+  per connection; 16 ranged connections gave ~3 MB/s. PR4 was not used (see the row above).
+- **eROSITA eRASS1 RGB HiPS**: order 2 (192 tiles, none missing), ACAO `*` re-checked. No licence is
+  named; the DR1 acknowledgement text is reproduced in the credits. Baked to the Gaia image's
+  Hammer-Aitoff grid (1.2 MB).
+- **Planck HFI 857 GHz HiPS** on the ESA mirror (`skies.esac.esa.int/pla/HFI_SkyMap_857_2048_R3_00_full_HiPS/`,
+  galactic, order 3, 256 px PNG, ACAO `*`, hips_copyright "ESA"): this replaces the alasky-only
+  "Planck HFI colour" row above for a dust background (0.5 MB).
+- **AllWISE colour** (ESA mirror) was baked at orders 2 and 3 and **left out**: Moon-contamination
+  streaks, moiré rings and tile-to-tile background jumps over much of the sky at those orders.
+- HiPS tile pixel order (calibrated against our Gaia image, `build_sky_backgrounds.py --calibrate`):
+  column = odd bits, row = even bits of the in-tile NESTED index.
+- **FRB hosts** (`public_hosts.csv` + `FRBs_base.csv`, BSD-3-Clause): 101 hosts with z in 3D.
+  **CHIME/FRB Catalog 2**: 5,045 CSV rows = 4,539 bursts (sub-bursts are separate rows), 3,641
+  sources, 83 repeaters; 36 sources already in the localised list; 26 sidelobe sources have no
+  position and are dropped; 3,579 CHIME + 82 localised-without-z = 3,661 sky directions.
+- **IceCat-1** v4 (CC0): 348 tracks, RA/Dec errors are asymmetric 90 % rectangles (README).
+  KM3-230213A (RA 94.3°, Dec −7.8°, r90 2.2°, 220 +570/−110 PeV) added from the KM3NeT papers.
+- TXS 0506+056: SIMBAD (Harvard) 77.358185, +5.693148 = NED to < 0.001″; z = 0.3365, Planck18
+  D_C 1,369.31 Mpc. NGC 1068: SIMBAD 40.669622, −0.013294 vs NED 40.6696, −0.0132865 (0.08″);
+  distance 14.4 Mpc as used by IceCube 2022.
 
 ## 6. Names and cross-IDs
 
@@ -339,7 +395,7 @@ Effort is for one developer working with this repo's existing pipeline: rough da
 | P0.1 Hosting | Bunny trial; upload the current 2.1 GB; measure; switch `TILE_BASE`; lite set stays on Pages. Apply to AWS Open Data | §7 | 2–3 d |
 | P0.2 Endpoint hygiene | Replace every `*.cds.unistra.fr` / alasky URL with mirror lists (IDIA, CfA, ESA skies, PADC). Add a live search fallback through Sesame and SIMBAD-CfA | §6, §5 | 1–2 d |
 | P0.3 Milky Way structure pack (small JSON / octree layers) | Hunt & Reffert clusters (+ 1.29 M members as tags or points, 52.8 MB); Baumgardt GCs; galstreams polylines; Radcliffe Wave; Zucker clouds; WISE HII V3.0 (1,435 with distances); Exoplanet Archive hosts; LVDB in place of McConnachie | §1 | 5–7 d |
-| P0.4 3D dust volume | Edenhofer 2024 MEAN → uint8 512×512×128 (33.6 MB) 3D texture + ray-marched volume renderer (WebGPU, WebGL2 fallback) | §1 | 7–10 d |
+| P0.4 3D dust volume | Edenhofer 2024 MEAN → uint8 512×512×128 (33.6 MB) 3D texture + ray-marched volume renderer (WebGPU, WebGL2 fallback) | §1 | 7–10 d. **Done 2026-11-14** as 6 pc uint8 418×418×134 + 12 pc RGBA8 (mean, std, A_V from the Sun) = 35.1 MB, from the HEALPix product; see web/README "3D dust" |
 | P0.5 Cosmic flows | CF4 64³ delta/velocity + CF4++ 128³ mean/std (post-erratum) + Laniakea watershed meshes; streamlines; reuses the P0.4 volume renderer | §2 | 5–7 d |
 | P0.6 More galaxies | ~~SDSS DR17; 6dFGS; 2dFGRS~~ **done 2026-11-14** (2,313,525 + 86,804 + 146,845 new points, 102 MB of tiles); Euclid DR1 high-purity EDF-N spec-z (see the Euclid row); MCXC-II + eRASS1 cluster markers | §2 | 1–2 d left |
 | P0.7 Multi-messenger | GWTC-5.0 cumulative list + baked 90 % volumes (≈ 3.4 MB); FRB hosts (101 z); IceCat-1 arrows; ZTF BTS (after the licence email); GW170817 / TXS 0506+056 / NGC 1068 cards | §3 | 5–6 d |
@@ -384,7 +440,7 @@ Effort is for one developer working with this repo's existing pipeline: rough da
 1. CDS recovery date (Vergely cubes, alasky-only HiPS: Legacy Surveys, Planck HiPS).
 2. Bunny throughput from Uzbekistan and which price region it bills (trial).
 3. AWS Open Data and CC BY-NC.
-4. Licence emails: ZTF BTS (D. Perley), TNS, Baumgardt (redistribution), MPC (if not using SBDB).
+4. Licence emails: ZTF BTS (D. Perley), TNS, Baumgardt (redistribution). MPC is settled: the MPCORB header allows inclusion with the header, credit and the download URL (checked 2026-11-14).
 5. Fixes for existing docs:
    - prior-work.md says Gaia DR4 is "Released"; it is scheduled.
    - content-contract.md calls astronomy-engine "JPL-derived"; it is VSOP87-based.

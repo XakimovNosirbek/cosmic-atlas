@@ -22,6 +22,9 @@ if [ -f data/raw/stars-gaia/bright_supplement.parquet ]; then
   $B stars-bright --src data/raw/stars-gaia --glob "bright_supplement.parquet" \
      --order lum --kind-model star --title "Bright stars (Hipparcos supplement)" --id-prefix "HIP " 2>&1 | tail -1
 fi
+# Star clusters: every Hunt & Reffert / Baumgardt cluster (scripts/build_clusters.py writes the raw table)
+build star-clusters --order lum --kind-model star --title "Star clusters (Hunt & Reffert 2023/24, Baumgardt)" \
+                    --id-prefix "HR23 ID "
 build galaxies-desi --order random --kind-model galaxy --title "DESI DR1 galaxies and quasars" --id-prefix "DESI "
 build galaxies-2mrs --order random --kind-model galaxy --title "2MASS Redshift Survey"
 build galaxies-cf4  --order random --kind-model galaxy --title "Cosmicflows-4"
@@ -34,4 +37,9 @@ build galaxies-euclid --order random --kind-model galaxy --title "Euclid DR1 hig
                       --id-prefix "Euclid DR1 " --note "Euclid Deep Field North only (~20 deg2), 0.85 <= z <= 1.85"
 build local-group   --order random --kind-model galaxy --title "Local Group (McConnachie)"
 build local-volume  --order random --kind-model galaxy --title "Local Volume (UNGC)"
+# Solar System extra layers (orbits, not octrees), from cached downloads only (see each script)
+if [ -f data/cache/mpc/MPCORB.DAT.gz ]; then $PY scripts/build_small_bodies.py | tail -1
+else echo "[small-bodies] skipped: no data/cache/mpc/MPCORB.DAT.gz"; fi
+if [ -f data/cache/celestrak/gp_active.json ]; then (cd scripts && ../$PY build_satellites.py | tail -1)
+else echo "[satellites] skipped: no data/cache/celestrak/gp_active.json"; fi
 du -sh data/tiles/* | sort -h

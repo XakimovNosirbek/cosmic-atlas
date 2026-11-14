@@ -43,6 +43,7 @@ number on screen comes with the catalogue it came from.
 | More redshift surveys | 2,313,525 SDSS galaxies and quasars not in DESI; 86,804 + 146,845 more in the south | SDSS DR17, 6dFGS DR3, 2dFGRS |
 | All-sky galaxies | 43,463 + 55,877 | 2MRS, Cosmicflows-4 |
 | Messages to the stars | Arecibo 1974 and 30 more, plus the Wow! signal | cited per entry |
+| Interstellar dust | 3D dust clouds within 1.25 kpc (6 pc grid), dark in front of the stars, a glow from outside | Edenhofer et al. 2024 |
 
 ## Screenshots
 

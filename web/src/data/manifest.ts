@@ -27,19 +27,39 @@ export interface PointLayerConfig {
 
 export interface ModelLayerConfig {
   id: string;
-  type: 'milky-way-model' | 'sky';
+  /** 'cmb' and 'markers' belong to src/messengers */
+  type: 'milky-way-model' | 'sky' | 'gw-volumes' | 'dust' | 'cmb' | 'markers';
   title: string;
   visible: boolean;
   credit?: string;
+  /** markers only: object kind of the layer (kinds.ts) and its sky-direction table in tiles/catalogs/ */
+  kind?: string;
+  data?: string;
+  /** sky only: the background chooser's images (src/messengers/backgrounds.ts); the first is the Gaia image */
+  backgrounds?: { id: string; title: string; image?: string; gain?: number; credit: string; short?: string }[];
   /** sky only: full-resolution image URL (JPEG: the fallback every browser decodes) */
   image?: string;
   /** sky only: the same image as WebP (smaller), tried before `image` */
   imageWebp?: string;
   /** sky only: small preview shown until the full image is in (progressive loading) */
   preview?: string;
+  /** dust only: directory holding meta.json and the textures (src/dust) */
+  path?: string;
 }
 
-export type LayerConfig = PointLayerConfig | ModelLayerConfig;
+/** Solar System extra layers drawn by src/solar (asteroids + comets, Earth satellites) */
+export interface SolarExtraLayerConfig {
+  id: string;
+  type: 'small-bodies' | 'satellites';
+  title: string;
+  path: string;
+  visible: boolean;
+  credit?: string;
+  /** draw at most this many objects per orbit class (brightest first) */
+  maxPoints?: number;
+}
+
+export type LayerConfig = PointLayerConfig | ModelLayerConfig | SolarExtraLayerConfig;
 
 export interface Manifest {
   version: number;
@@ -86,7 +106,7 @@ export interface CatalogEntry {
  * a galaxy nucleus): they share names with that object but are separate entries, so duplicate
  * detection only compares them with entries of the same kind.
  */
-export const OWN_NAMESPACE_KINDS = new Set(['exoplanet', 'pulsar', 'black_hole', 'message', 'seti_signal']);
+export const OWN_NAMESPACE_KINDS = new Set(['exoplanet', 'pulsar', 'black_hole', 'message', 'seti_signal', 'frb', 'neutrino', 'cmb']);
 
 /**
  * Optional listing of what is built under tiles/ ({layers: [...], catalogs: [...]}). The dev

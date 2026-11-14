@@ -70,8 +70,21 @@ export const LAYER_VIEWS: Record<string, NamedView> = {
   'milky-way-model': NAMED_VIEWS['milky-way'],
   // the Solar System layer (src/solar) is not in layers.json; main.ts adds it to the panel
   solar: NAMED_VIEWS['solar-system'],
+  // asteroids and comets: the inner Solar System out to Jupiter's trojans, from 55° above the plane
+  'small-bodies': { target: { sun: true }, dist: 12 * 4.84813681109536e-6, pitchDeg: 55 },
+  // satellites: the Earth from 60,000 km, inside the 0.015 AU the layer is drawn within
+  satellites: { target: { body: 'earth', fallback: [0, 0, 0] }, dist: (60000 / 149597870.7) * 4.84813681109536e-6, pitchDeg: 25 },
   // the all-sky image is only drawn within ~2 kpc of the Sun
   'gaia-sky': { target: { sun: true }, dist: 1, pitchDeg: 10 },
+  // Hunt & Reffert clusters thin out beyond ~3 kpc; the bright, nearby ones within 1 kpc
+  'star-clusters': { target: { sun: true }, dist: 1500, pitchDeg: 35 },
+  // GWTC events reach ~3.5 Gpc comoving; 4 Gpc of camera distance shows them all
+  'gw-volumes': { target: { sun: true }, dist: 4e9, pitchDeg: 25 },
+  // multi-messenger layers (src/messengers): the CMB shell whole from the zoom limit; FRB hosts
+  // reach z ~ 1 (3.4 Gpc); neutrino alerts are sky regions, so look at the sky from the Sun
+  cmb: { target: { sun: true }, dist: 3e10, pitchDeg: 20 },
+  frb: { target: { sun: true }, dist: 6e9, pitchDeg: 25 },
+  neutrinos: { target: { sun: true }, dist: 1, pitchDeg: 10 },
 };
 
 export const LAYER_ID = /^[A-Za-z0-9_.-]{1,64}$/;

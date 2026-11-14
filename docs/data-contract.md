@@ -139,6 +139,15 @@ System sits at the origin). Motion is linear: it ignores the Galaxy's gravity, w
 paths; Bailer-Jones 2015 (A&A 575, A35) shows linear motion gives inaccurate, biased encounter
 parameters for many stars, so the viewer limits Δt to ±1 Myr and says so.
 
+### Layer note: `star-clusters`
+
+Built by `scripts/build_clusters.py` (raw table) + `build_tiles.py --kind-model star`: every Hunt & Reffert
+2023/24 and Baumgardt cluster (7,181). Its `mag` and `color` are **rendering proxies**, not measurements:
+M = 4.83 − 2.5 log10(mass/M☉) (member count if no mass), colour a BP−RP-like value from log age. The
+`id` is the Hunt & Reffert ID (100000 + row for Baumgardt-only globulars). The viewer opens the
+`clusters.json` card of a picked point (nearest entry within 0.05 pc); the full catalogue with facts would
+be 2.3 MB, so far unnamed moving groups exist only in this layer.
+
 ## 4. Small catalogues (`data/tiles/catalogs/*.json`, committed when < 2 MB)
 
 Named objects for labels and instant search: `named-stars.json`, `local-group.json`,
@@ -193,6 +202,45 @@ labels. Top level: `version`, `generated_utc`, `conventions`, `sources` (citatio
 Source priority, per field: HyperLEDA (live) > OpenNGC > HyperLEDA 2003 (VizieR VII/237, PA
 precessed from B1950) > UNGC > McConnachie 2012; inclination HyperLEDA > UNGC > derived from b/a
 with q0 = 0.2.
+
+### 4c. Volume layer: `data/tiles/dust/` (`scripts/build_dust.py`)
+
+A layer with `"type": "dust"` in `layers.json` (`path` = this directory). Same frame and unit as
+§1. `meta.json` and `PROVENANCE.json` are committed; the textures are rebuilt (35.1 MB).
+
+| file | layout |
+|---|---|
+| `meta.json` | `fine`/`aux`: `file`, `dims` [nx, ny, nz], `voxelPc`, `origin` (min corner, pc), `format`, `bytes`; `mean`/`std`: log10 code range `lo`, `hi`; `sunAv.max`; `dataRadiusPc`; `rgbExtinctionRatio`; `percentiles`; `landmarks` (validation clouds: name, (l, b), literature distance, map xyz); `citation`, `doi`, `license` |
+| `mean_u8.bin` | 418 × 418 × 134 uint8, 6 pc voxels, origin (−1254, −1254, −402): posterior mean A_V per kpc, code 0 = below 10^lo (decoded `c · 10^lo`), 1–255 = 10^(lo + (c−1)/254 (hi−lo)) |
+| `aux_rgba8.bin` | 209 × 209 × 67 RGBA8, 12 pc voxels, same origin: R = mean (same code), G = posterior std (its own code), B·256 + A = A_V from the Sun to the voxel centre as uint16 of `sunAv.max` |
+
+Voxel (i, j, k) is the average over origin + [i, i+1) × voxel (x fastest, then y, then z); its value
+sits at the cell centre, so a GPU linear sampler at normalised coordinate (x − origin) / (dims × voxel)
+reads it exactly (`web/src/dust/grid.ts`, unit-tested). Outside r = 1248 pc the field is 0 (no data).
+
+### 4c. Solar System extra layers (`layers.json` types `small-bodies` and `satellites`)
+
+Not octree tiles: the positions depend on the simulation time, so the files hold orbits.
+
+`data/tiles/small-bodies/` (`scripts/build_small_bodies.py`, from MPCORB.DAT + AllCometEls.txt):
+
+| file | content |
+|---|---|
+| `<class>.bin` (`neo`, `main`, `trojan`, `centaur`, `tno`, `comet`) | N × 7 float32, interleaved: q (AU), e, i, Ω, ω (rad, J2000 ecliptic), tp (days, perihelion time − `ref_epoch_jd_tt`), H; then N × uint8 flags (low nibble sub-class, high nibble MPC U: 10 = E, 11 = D/F, 15 = blank). Sorted by H, brightest first |
+| `desig/<class>-<k>.txt` | one designation per line (MPC packed form; comets: full name), records k·65536 … k·65536 + 65535 |
+| `names.json` | search/label entries: name, number, class, record index, the same 7 elements, own epoch offset, U, arc |
+| `meta.json` | reference epoch, classes with counts/bytes/sub-class counts, sources and file times |
+| `MPCORB_HEADER.txt` | the MPCORB header, verbatim (its terms require it next to the data) |
+
+Elements are converted to the most common MPC epoch (K2669 = JD 2461200.5 TT for the file of
+2026-11-13) by two-body propagation in float64; the viewer then solves Kepler's equation for the
+time bar's date (`web/src/solar/kepler.ts`, GPU twin in `orbitpoints.ts`) and rotates J2000
+ecliptic → ICRS (ε = 84381.448″) → Galactic.
+
+`data/tiles/satellites/` (`scripts/build_satellites.py`): `gp.json` = `{fields, rows, group}` with
+the CelesTrak OMM keys SGP4 needs (group 0 stations, 1 Starlink, 2 other active), `jwst.json` = a
+geocentric Horizons track in the spacecraft-track shape (contract frame, pc and pc/day, daily),
+`meta.json` = snapshot time, counts, element-epoch range, sources.
 
 ## 5. Renderer rules (web/)
 
