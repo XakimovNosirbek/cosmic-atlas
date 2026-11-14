@@ -480,5 +480,21 @@
   "row.closest": "Ближе всего к Солнцу (по прямой)",
   "row.closestValue": "{d} через {t}",
   "row.closestPast": "{d}, {t} назад",
-  "info.epochNote": "Положение сдвинуто по прямой со скоростью из Gaia DR3; галактические орбиты не учтены."
+  "info.epochNote": "Положение сдвинуто по прямой со скоростью из Gaia DR3; галактические орбиты не учтены.",
+  "layer.galaxies-sdss": "Галактики и квазары SDSS",
+  "layer.galaxies-6dfgs": "Обзор галактик 6dF",
+  "layer.galaxies-2dfgrs": "Обзор красных смещений галактик 2dF",
+  "layer.galaxies-euclid": "Спектры Euclid DR1 (глубокое поле)",
+  "credit.stars-gaia": "ESA/Gaia/DPAC, Gaia DR3",
+  "credit.stars-gaia-preview": "ESA/Gaia/DPAC, Gaia DR3; только загруженные части",
+  "credit.galaxies-desi": "Коллаборация DESI",
+  "credit.galaxies-2mrs": "Huchra и др. 2012",
+  "credit.galaxies-cf4": "Tully и др. 2023, расстояния, не зависящие от красного смещения",
+  "credit.galaxies-sdss": "SDSS DR17, Abdurro'uf и др. 2022; объекты, уже имеющиеся в DESI DR1, удалены",
+  "credit.galaxies-6dfgs": "6dFGS DR3, Jones и др. 2009; объекты, уже имеющиеся в DESI, SDSS или 2MRS, удалены",
+  "credit.galaxies-2dfgrs": "2dFGRS, Colless и др. 2001; объекты, уже имеющиеся в DESI, SDSS, 2MRS или 6dFGS, удалены",
+  "credit.galaxies-euclid": "ESA Euclid DR1 (CC BY-NC 3.0 IGO); красные смещения NISP высокой чистоты, только северное глубокое поле Euclid",
+  "credit.local-volume": "UNGC, Karachentsev и др. 2013",
+  "credit.milky-way-model": "Рукава: Reid и др. 2019, ApJ 885, 131; R0 = 8,275 кпк, GRAVITY 2021. Это модель, а не данные.",
+  "credit.gaia-sky": "Суммарный поток Gaia DR3 (ESA/Gaia/DPAC)"
 }

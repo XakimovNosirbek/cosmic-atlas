@@ -7,7 +7,7 @@
 ![From Earth to the cosmic web: Earth, Saturn, the Andromeda galaxy and the DESI galaxy web](docs/images/banner.jpg)
 
 Fly from your own planet past Saturn, out of the Milky Way, past Andromeda and into the web of
-15 million galaxies mapped by DESI. Every point is a real object at its measured position. Every
+17.7 million galaxies mapped by DESI, SDSS, 6dFGS and 2dFGRS. Every point is a real object at its measured position. Every
 number on screen comes with the catalogue it came from.
 
 ## What you can do
@@ -40,6 +40,7 @@ number on screen comes with the catalogue it came from.
 | Nebulae and supernova remnants | 421 + 312 | OpenNGC, Green 2024 |
 | Nearby galaxies | Local Group, Local Volume, 1,016 with real shapes and images | McConnachie, UNGC, HyperLEDA, DSS2 |
 | Distant galaxies | 15,140,002 galaxies and quasars | DESI DR1 |
+| More redshift surveys | 2,313,525 SDSS galaxies and quasars not in DESI; 86,804 + 146,845 more in the south | SDSS DR17, 6dFGS DR3, 2dFGRS |
 | All-sky galaxies | 43,463 + 55,877 | 2MRS, Cosmicflows-4 |
 | Messages to the stars | Arecibo 1974 and 30 more, plus the Wow! signal | cited per entry |
 
@@ -92,7 +93,7 @@ More detail: [web/README.md](web/README.md) (the viewer), [docs/prior-work.md](d
 
 ## Credits
 
-- **Data:** ESA/Gaia/DPAC, the DESI Collaboration, NASA Exoplanet Archive, ATNF, JPL, 2MRS,
+- **Data:** ESA/Gaia/DPAC, the DESI Collaboration, SDSS, 6dFGS, 2dFGRS, ESA Euclid, NASA Exoplanet Archive, ATNF, JPL, 2MRS,
   Cosmicflows-4, HyperLEDA, CDS (SIMBAD, VizieR, HiPS), OpenNGC (CC BY-SA 4.0; our derived NGC
   catalogues carry the same licence), and every paper cited in the
   catalogues.
@@ -105,5 +106,6 @@ More detail: [web/README.md](web/README.md) (the viewer), [docs/prior-work.md](d
 ## License
 
 The code is [MIT](LICENSE). The data keeps its own licences. Gaia is **CC BY-NC 3.0 IGO**, so
-this project is non-commercial. DESI DR1 is CC BY 4.0. The others are listed in each layer's
+this project is non-commercial. Euclid DR1 is CC BY-NC 3.0 IGO too. DESI DR1 is CC BY 4.0; SDSS data
+are in the public domain. The others are listed in each layer's
 `PROVENANCE.json`.

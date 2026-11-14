@@ -42,6 +42,16 @@ describe('i18n dictionaries', () => {
     for (const L of m.layers) expect(DICTS.uz, L.id).toHaveProperty([`layer.${L.id}`]);
   });
 
+  it('has a translated credit for every layer in layers.json that carries one, matching the English manifest text', () => {
+    const m = JSON.parse(readFileSync(resolve(__dirname, '../public/layers.json'), 'utf8')) as { layers: { id: string; credit?: string }[] };
+    const credited = m.layers.filter((L) => L.credit);
+    expect(credited.length).toBeGreaterThan(8);
+    for (const L of credited) {
+      for (const l of LANGS) expect(DICTS[l], `${l} ${L.id}`).toHaveProperty([`credit.${L.id}`]);
+      expect(DICTS.en[`credit.${L.id}`], L.id).toBe(L.credit);
+    }
+  });
+
   it('writes Uzbek with oʻ / gʻ (U+02BB) and ʼ (U+02BC), never ASCII or curly apostrophes', () => {
     for (const [k, v] of Object.entries(DICTS.uz)) {
       expect(v, k).not.toMatch(/[og]['‘’`]/i);

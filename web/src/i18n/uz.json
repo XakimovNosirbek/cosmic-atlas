@@ -480,5 +480,21 @@
   "row.closest": "Quyoshga eng yaqin nuqta (toʻgʻri chiziq)",
   "row.closestValue": "{t} oʻtib: {d}",
   "row.closestPast": "{d}, {t} oldin",
-  "info.epochNote": "Oʻrin Gaia DR3 tezligi bilan toʻgʻri chiziq boʻylab surilgan; galaktik orbitalar hisobga olinmagan."
+  "info.epochNote": "Oʻrin Gaia DR3 tezligi bilan toʻgʻri chiziq boʻylab surilgan; galaktik orbitalar hisobga olinmagan.",
+  "layer.galaxies-sdss": "SDSS galaktikalari va kvazarlari",
+  "layer.galaxies-6dfgs": "6dF galaktikalar obzori",
+  "layer.galaxies-2dfgrs": "2dF galaktikalar qizil siljish obzori",
+  "layer.galaxies-euclid": "Euclid DR1 chuqur maydon spektrlari",
+  "credit.stars-gaia": "ESA/Gaia/DPAC, Gaia DR3",
+  "credit.stars-gaia-preview": "ESA/Gaia/DPAC, Gaia DR3; faqat yuklab boʻlingan qismlar",
+  "credit.galaxies-desi": "DESI hamkorligi",
+  "credit.galaxies-2mrs": "Huchra va boshq. 2012",
+  "credit.galaxies-cf4": "Tully va boshq. 2023, qizil siljishga bogʻliq boʻlmagan masofalar",
+  "credit.galaxies-sdss": "SDSS DR17, Abdurroʼuf va boshq. 2022; DESI DR1 da bor obyektlar olib tashlangan",
+  "credit.galaxies-6dfgs": "6dFGS DR3, Jones va boshq. 2009; DESI, SDSS yoki 2MRS da bor obyektlar olib tashlangan",
+  "credit.galaxies-2dfgrs": "2dFGRS, Colless va boshq. 2001; DESI, SDSS, 2MRS yoki 6dFGS da bor obyektlar olib tashlangan",
+  "credit.galaxies-euclid": "ESA Euclid DR1 (CC BY-NC 3.0 IGO); yuqori ishonchli NISP qizil siljishlari, faqat Euclid Shimoliy chuqur maydoni",
+  "credit.local-volume": "UNGC, Karachentsev va boshq. 2013",
+  "credit.milky-way-model": "Qoʻllar: Reid va boshq. 2019, ApJ 885, 131; R0 = 8,275 kpk, GRAVITY 2021. Bu model, maʼlumot emas.",
+  "credit.gaia-sky": "Gaia DR3 yigʻma yorugʻlik oqimi (ESA/Gaia/DPAC)"
 }

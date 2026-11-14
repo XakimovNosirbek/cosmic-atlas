@@ -25,6 +25,13 @@ fi
 build galaxies-desi --order random --kind-model galaxy --title "DESI DR1 galaxies and quasars" --id-prefix "DESI "
 build galaxies-2mrs --order random --kind-model galaxy --title "2MASS Redshift Survey"
 build galaxies-cf4  --order random --kind-model galaxy --title "Cosmicflows-4"
+# de-duplicated against DESI (and each other): scripts/fetch_sdss.py, fetch_6df_2df.py, fetch_euclid.py
+build galaxies-sdss   --order random --kind-model galaxy --title "SDSS DR17 galaxies and quasars (not in DESI DR1)" \
+                      --id-prefix "SDSS DR17 specObjID "
+build galaxies-6dfgs  --order random --kind-model galaxy --title "6dFGS DR3 (not in DESI, SDSS, 2MRS)" --id-prefix "6dFGS TARGETID "
+build galaxies-2dfgrs --order random --kind-model galaxy --title "2dFGRS (not in DESI, SDSS, 2MRS, 6dFGS)" --id-prefix "2dFGRS SEQNUM "
+build galaxies-euclid --order random --kind-model galaxy --title "Euclid DR1 high-purity NISP redshifts (EDF-N)" \
+                      --id-prefix "Euclid DR1 " --note "Euclid Deep Field North only (~20 deg2), 0.85 <= z <= 1.85"
 build local-group   --order random --kind-model galaxy --title "Local Group (McConnachie)"
 build local-volume  --order random --kind-model galaxy --title "Local Volume (UNGC)"
 du -sh data/tiles/* | sort -h
