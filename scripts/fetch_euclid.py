@@ -22,8 +22,8 @@ Field North (7 RGS + 3 BGS visits), selected as follows (sec. 4.3), which this s
 
 Access: NASA/IPAC IRSA TAP (Euclid DR1 mirror), async jobs. Stage 1 scans the galaxy-candidate table
 with the redshift cuts, stage 2 the spectrum-quality table, stage 3 the H-alpha line table (each with its
-own cuts; intersected locally on object_id), and stage 4 uploads the surviving object_ids (TAP_UPLOAD, 50k
-per request) to join the MER catalogue with its cuts. A single upload join of all 1.79 M stage-1 ids was
+own cuts; intersected locally on object_id), and stage 4 uploads the stage 1+2 object_ids (TAP_UPLOAD, one
+request) to join the MER catalogue with its cuts; stages 3 and 4 run concurrently. A single upload join of all 1.79 M stage-1 ids was
 too heavy. Each stage result is cached in parts/; re-runs skip it. On 2026-11-14 the stage-1 async job
 took 42 min.
 De-duplication against DESI DR1 (1 arcsec, |dz| < 0.002, keep DESI), SDSS DR17, 2MRS, 6dFGS and 2dFGRS
@@ -34,6 +34,8 @@ Usage: .venv/bin/python scripts/fetch_euclid.py [--refresh-stage N]
 from __future__ import annotations
 
 import argparse
+import concurrent.futures as cf
+import io
 import datetime as dt
 import json
 import sys
@@ -45,6 +47,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pyvo
+import requests
 from astropy.table import Table
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -84,7 +87,7 @@ Q_MER = f"""SELECT m.object_id, m.ra, m.dec, m.point_like_prob, m.spurious_prob,
 FROM TAP_UPLOAD.ids AS u JOIN {T_MER} AS m ON m.object_id = u.object_id
 WHERE m.point_like_prob < {CUTS['point_like_prob_lt']} AND m.spurious_prob < {CUTS['spurious_prob_lt']}
  AND m.kron_radius < {CUTS['kron_radius_lt']}"""
-MER_CHUNK = 50_000
+MER_CHUNK = 1_000_000  # one upload: each request is a full scan of the MER table
 
 CITATIONS = [
     {"what": "Euclid DR1 overview", "ref": "Euclid Collaboration: Aussel et al. 2026, A&A (DR1 overview), "
@@ -115,8 +118,18 @@ def run_async(svc, q: str, uploads=None, maxrec: int = 20_000_000, timeout: int 
     for attempt in range(1, 5):
         job = None
         try:
+            if MODE["tap"] == "sync" and not uploads:
+                # CSV is ~4x smaller than TABLEDATA VOTable; the read timeout catches a stalled
+                # connection (one sync request hung for hours after the host slept, 2026-11-14)
+                r = requests.post(f"{TAP_URL}/sync", data={"REQUEST": "doQuery", "LANG": "ADQL", "FORMAT": "csv",
+                                  "MAXREC": str(maxrec), "QUERY": q}, timeout=(60, 1800),
+                                  headers={"User-Agent": "cosmic-atlas-fetch/1.0"})
+                r.raise_for_status()
+                if r.text.lstrip().startswith("<"):
+                    raise RuntimeError(f"TAP error: {r.text[:300]}")
+                return Table.from_pandas(pd.read_csv(io.StringIO(r.text)))
             if MODE["tap"] == "sync":
-                res = svc.run_sync(q, maxrec=maxrec, uploads=uploads) if uploads else svc.run_sync(q, maxrec=maxrec)
+                res = svc.run_sync(q, maxrec=maxrec, uploads=uploads)
                 if getattr(res, "query_status", "OK") == "OVERFLOW":
                     raise RuntimeError("result OVERFLOW (maxrec hit)")
                 return res.to_table()
@@ -188,29 +201,41 @@ def main() -> None:
     print(f"stage 1: {len(gal)} rank-0 galaxy solutions pass the redshift cuts", flush=True)
     qual, m2 = stage("stage2_quality", 2 in a.refresh_stage, lambda: to_pandas(run_async(svc, Q_QUAL)))
     print(f"stage 2: {len(qual)} spectra pass the dither / pixel cuts", flush=True)
-    ha, m3 = stage("stage3_halpha", 3 in a.refresh_stage, lambda: to_pandas(run_async(svc, Q_HA)))
+    g1 = gal.sort_values("spe_z_prob", ascending=False).drop_duplicates("object_id")
+    q1 = qual.sort_values("spe_n_dith_med", ascending=False).drop_duplicates("object_id")
+    gq = g1.merge(q1, on="object_id")
+    print(f"stages 1+2: {len(gq)} objects", flush=True)
+
+    # stage 3 (H-alpha scan) and stage 4 (MER join on the stage 1+2 ids, one upload) are independent
+    # full-table scans on IRSA (no index on object_id: a single-id lookup took 73 s), so run both at once
+    ids_all = np.sort(gq["object_id"].to_numpy(dtype=np.int64))
+
+    def mer_stage():
+        parts = []
+        for k, lo in enumerate(range(0, len(ids_all), MER_CHUNK)):
+            chunk = Table({"object_id": ids_all[lo:lo + MER_CHUNK]})
+            part, _ = stage(f"stage4_mer_{k:03d}", 4 in a.refresh_stage,
+                            lambda c=chunk: to_pandas(run_async(svc, Q_MER, uploads={"ids": c})))
+            parts.append(part)
+            print(f"  MER chunk {k}: {len(chunk)} ids -> {len(part)} rows", flush=True)
+        return parts
+
+    with cf.ThreadPoolExecutor(max_workers=2) as ex:
+        f_ha = ex.submit(stage, "stage3_halpha", 3 in a.refresh_stage, lambda: to_pandas(run_async(svc, Q_HA)))
+        f_mer = ex.submit(mer_stage)
+        ha, m3 = f_ha.result()
+        mer_parts = f_mer.result()
     print(f"stage 3: {len(ha)} rank-0 H-alpha lines pass the flux / S/N cuts", flush=True)
 
     # one row per object: object_id is "not guaranteed to be unique" (several tiles / products)
     n_dup = {"stage1": int(gal["object_id"].duplicated().sum()), "stage2": int(qual["object_id"].duplicated().sum()),
              "stage3": int(ha["object_id"].duplicated().sum())}
-    g1 = gal.sort_values("spe_z_prob", ascending=False).drop_duplicates("object_id")
-    q1 = qual.sort_values("spe_n_dith_med", ascending=False).drop_duplicates("object_id")
     h1 = ha.sort_values("ha_snr", ascending=False).drop_duplicates("object_id")
-    spe = g1.merge(q1, on="object_id").merge(h1, on="object_id")
+    spe = gq.merge(h1, on="object_id")
     print(f"SPE cuts together: {len(spe)} objects", flush=True)
-
-    ids_all = np.sort(spe["object_id"].to_numpy(dtype=np.int64))
-    mer_parts = []
-    for k, lo in enumerate(range(0, len(ids_all), MER_CHUNK)):
-        chunk = Table({"object_id": ids_all[lo:lo + MER_CHUNK]})
-        part, _ = stage(f"stage4_mer_{k:03d}", 4 in a.refresh_stage,
-                        lambda c=chunk: to_pandas(run_async(svc, Q_MER, uploads={"ids": c})))
-        mer_parts.append(part)
-        print(f"  MER chunk {k}: {len(chunk)} ids -> {len(part)} rows", flush=True)
     mer = pd.concat(mer_parts, ignore_index=True)
     n_dup["stage4_mer"] = int(mer["object_id"].duplicated().sum())
-    m4 = {"chunks": len(mer_parts), "chunk_size": MER_CHUNK, "rows": int(len(mer))}
+    m4 = {"chunks": len(mer_parts), "chunk_size": MER_CHUNK, "uploaded_ids": int(len(ids_all)), "rows": int(len(mer))}
     mer1 = mer.sort_values("kron_radius").drop_duplicates("object_id")
     df = spe.merge(mer1, on="object_id", how="inner")
     print(f"stage 4: {len(df)} objects after the MER cuts", flush=True)

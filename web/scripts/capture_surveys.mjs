@@ -12,7 +12,8 @@ const DIST = +(process.env.DIST ?? 3e8);
 const YAW = +(process.env.YAW ?? -150);
 const PITCH = +(process.env.PITCH ?? 0);
 const SURVEYS = ['galaxies-desi', 'galaxies-sdss', 'galaxies-2mrs', 'galaxies-6dfgs', 'galaxies-2dfgrs', 'galaxies-euclid'];
-const OTHER_OFF = ['galaxies-cf4', 'local-group', 'local-volume', 'stars-gaia', 'stars-gaia-preview', 'milky-way-model', 'gaia-sky', 'solar'];
+const OTHER_OFF = ['galaxies-cf4', 'local-group', 'local-volume', 'stars-gaia', 'stars-gaia-preview', 'milky-way-model', 'gaia-sky', 'solar',
+  'dust', 'star-clusters', 'gw-volumes', 'cmb', 'frb', 'neutrinos', 'small-bodies', 'satellites'];
 const CAPTURES = [
   ['combined', SURVEYS],
   ['before', ['galaxies-desi', 'galaxies-2mrs']],
@@ -32,7 +33,7 @@ console.log('navigator.gpu:', await page.evaluate(async () => { if (!navigator.g
 await page.waitForTimeout(3000);
 for (const id of OTHER_OFF) await page.evaluate((i) => window.__atlas.setLayer(i, false), id);
 // the layer panel and stats box cover a third of the frame: hide them in the figure (stats are printed)
-await page.addStyleTag({ content: '#layers, #stats { display: none !important; }' });
+await page.addStyleTag({ content: '#layers, #stats, #labels { display: none !important; }' });
 await page.evaluate(([s]) => window.__atlas.setSlab(s), [SLAB]);
 await page.evaluate(([d, y, p]) => window.__atlas.setView({ focus: [0, 0, 0], dist: d, yaw: (y * Math.PI) / 180, pitch: (p * Math.PI) / 180 }), [DIST, YAW, PITCH]);
 for (const [name, on] of CAPTURES) {
