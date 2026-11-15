@@ -22,8 +22,8 @@ Field North (7 RGS + 3 BGS visits), selected as follows (sec. 4.3), which this s
 
 Access: NASA/IPAC IRSA TAP (Euclid DR1 mirror), async jobs. Stage 1 scans the galaxy-candidate table
 with the redshift cuts, stage 2 the spectrum-quality table, stage 3 the H-alpha line table (each with its
-own cuts; intersected locally on object_id), and stage 4 uploads the stage 1+2 object_ids (TAP_UPLOAD, one
-request) to join the MER catalogue with its cuts; stages 3 and 4 run concurrently. A single upload join of all 1.79 M stage-1 ids was
+own cuts; intersected locally on object_id), and stage 4 uploads the stage 1+2 object_ids (TAP_UPLOAD, 60k
+per job) to join the MER catalogue with its cuts; stage 3 and the stage-4 jobs run concurrently. A single upload join of all 1.79 M stage-1 ids was
 too heavy. Each stage result is cached in parts/; re-runs skip it. On 2026-11-14 the stage-1 async job
 took 42 min.
 De-duplication against DESI DR1 (1 arcsec, |dz| < 0.002, keep DESI), SDSS DR17, 2MRS, 6dFGS and 2dFGRS
@@ -87,7 +87,7 @@ Q_MER = f"""SELECT m.object_id, m.ra, m.dec, m.point_like_prob, m.spurious_prob,
 FROM TAP_UPLOAD.ids AS u JOIN {T_MER} AS m ON m.object_id = u.object_id
 WHERE m.point_like_prob < {CUTS['point_like_prob_lt']} AND m.spurious_prob < {CUTS['spurious_prob_lt']}
  AND m.kron_radius < {CUTS['kron_radius_lt']}"""
-MER_CHUNK = 1_000_000  # one upload: each request is a full scan of the MER table
+MER_CHUNK = 60_000  # IRSA's proxy answered 502 to a 426,876-id upload job (2026-11-14); chunks run in parallel
 
 CITATIONS = [
     {"what": "Euclid DR1 overview", "ref": "Euclid Collaboration: Aussel et al. 2026, A&A (DR1 overview), "
@@ -135,11 +135,33 @@ def run_async(svc, q: str, uploads=None, maxrec: int = 20_000_000, timeout: int 
                 return res.to_table()
             job = svc.submit_job(q, maxrec=maxrec, uploads=uploads) if uploads else svc.submit_job(q, maxrec=maxrec)
             job.run()
-            job.wait(phases=["COMPLETED", "ERROR", "ABORTED"], timeout=timeout)
+            print(f"  TAP job {job.url}", flush=True)
+            # poll the job ourselves: a 502 from IRSA's proxy while polling must not throw the job away
+            # (pyvo's wait() raises on it; that cost a 10-minute scan on 2026-11-14)
+            t_end = time.time() + timeout
+            while True:
+                try:
+                    phase = job.phase
+                except Exception as exc:  # transient proxy error: the job keeps running server side
+                    print(f"  poll error (job kept): {exc}", flush=True)
+                    phase = None
+                if phase in ("COMPLETED", "ERROR", "ABORTED"):
+                    break
+                if time.time() > t_end:
+                    raise RuntimeError(f"job still {phase} after {timeout} s")
+                time.sleep(30)
             if job.phase != "COMPLETED":
                 job.raise_if_error()
                 raise RuntimeError(f"job phase {job.phase}")
-            res = job.fetch_result()
+            for k in range(6):  # the result stays on the server: retry the download, not the scan
+                try:
+                    res = job.fetch_result()
+                    break
+                except Exception as exc:
+                    if k == 5:
+                        raise
+                    print(f"  result download error (retrying): {exc}", flush=True)
+                    time.sleep(60)
             if getattr(res, "query_status", "OK") == "OVERFLOW":
                 raise RuntimeError("result OVERFLOW (maxrec hit)")
             return res.to_table()
@@ -210,21 +232,19 @@ def main() -> None:
     # full-table scans on IRSA (no index on object_id: a single-id lookup took 73 s), so run both at once
     ids_all = np.sort(gq["object_id"].to_numpy(dtype=np.int64))
 
-    def mer_stage():
-        parts = []
-        for k, lo in enumerate(range(0, len(ids_all), MER_CHUNK)):
-            chunk = Table({"object_id": ids_all[lo:lo + MER_CHUNK]})
-            part, _ = stage(f"stage4_mer_{k:03d}", 4 in a.refresh_stage,
-                            lambda c=chunk: to_pandas(run_async(svc, Q_MER, uploads={"ids": c})))
-            parts.append(part)
-            print(f"  MER chunk {k}: {len(chunk)} ids -> {len(part)} rows", flush=True)
-        return parts
+    def mer_chunk(k: int, lo: int) -> pd.DataFrame:
+        chunk = Table({"object_id": ids_all[lo:lo + MER_CHUNK]})
+        part, _ = stage(f"stage4_mer_{k:03d}", 4 in a.refresh_stage,
+                        lambda c=chunk: to_pandas(run_async(svc, Q_MER, uploads={"ids": c})))
+        print(f"  MER chunk {k}: {len(chunk)} ids -> {len(part)} rows", flush=True)
+        return part
 
-    with cf.ThreadPoolExecutor(max_workers=2) as ex:
+    starts = list(range(0, len(ids_all), MER_CHUNK))
+    with cf.ThreadPoolExecutor(max_workers=1 + len(starts)) as ex:
         f_ha = ex.submit(stage, "stage3_halpha", 3 in a.refresh_stage, lambda: to_pandas(run_async(svc, Q_HA)))
-        f_mer = ex.submit(mer_stage)
+        f_mer = [ex.submit(mer_chunk, k, lo) for k, lo in enumerate(starts)]
         ha, m3 = f_ha.result()
-        mer_parts = f_mer.result()
+        mer_parts = [f.result() for f in f_mer]
     print(f"stage 3: {len(ha)} rank-0 H-alpha lines pass the flux / S/N cuts", flush=True)
 
     # one row per object: object_id is "not guaranteed to be unique" (several tiles / products)
