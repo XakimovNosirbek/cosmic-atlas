@@ -27,8 +27,8 @@ export interface PointLayerConfig {
 
 export interface ModelLayerConfig {
   id: string;
-  /** 'cmb' and 'markers' belong to src/messengers */
-  type: 'milky-way-model' | 'sky' | 'gw-volumes' | 'dust' | 'cmb' | 'markers';
+  /** 'cmb' and 'markers' belong to src/messengers; 'sg-grid', 'cf4-density', 'cf4-flow', 'galaxy-groups' to src/cosmography */
+  type: 'milky-way-model' | 'sky' | 'gw-volumes' | 'dust' | 'cmb' | 'markers' | 'sg-grid' | 'cf4-density' | 'cf4-flow' | 'galaxy-groups';
   title: string;
   visible: boolean;
   credit?: string;
@@ -43,7 +43,7 @@ export interface ModelLayerConfig {
   imageWebp?: string;
   /** sky only: small preview shown until the full image is in (progressive loading) */
   preview?: string;
-  /** dust only: directory holding meta.json and the textures (src/dust) */
+  /** dust / cf4-*: directory holding meta.json and the textures (src/dust, src/cosmography) */
   path?: string;
 }
 

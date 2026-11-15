@@ -44,6 +44,8 @@ const UNITS: [string, string][] = [
   ['_tev', 'TeV'],
   ['_pev', 'PeV'],
   ['_per_yr', 'yr⁻¹'],
+  ['_kms', 'km/s'],
+  ['_hmpc', 'h⁻¹ Mpc'],
 ];
 
 /** i18n key of a text fact value ('open cluster' → facts.val.open_cluster) */

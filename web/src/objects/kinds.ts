@@ -49,6 +49,12 @@ export const KINDS: Record<string, KindInfo> = {
   frb:          { doc: 'fast-radio-burst',      label: 'kind.frb',          color: '#ff9ad8', minScale: 1e6, maxScale: 2e10 },
   neutrino:     { doc: 'neutrino',              label: 'kind.neutrino',     color: '#8ff3ff', minScale: 1e6, maxScale: 2e10 },
   cmb:          { doc: 'cmb',                   label: 'kind.cmb',          color: '#f2c9a0', minScale: 6e9 },
+  // cosmography (src/cosmography): CF4 basins (superclusters), their attractors, 2MRS groups and clusters,
+  // the supergalactic grid's own labels; superclusters span 50-400 Mpc, groups 1-3 Mpc
+  supercluster: { doc: 'laniakea',              label: 'kind.supercluster', color: '#ffb46b', minScale: 2e7, maxScale: 6e9 },
+  attractor:    { doc: 'laniakea',              label: 'kind.attractor',    color: '#ffd9a0', minScale: 1e7, maxScale: 3e9 },
+  galaxy_group: { doc: 'laniakea',              label: 'kind.galaxy_group', color: '#9fc3ff', minScale: 3e6, maxScale: 6e8 },
+  sg_grid:      { doc: 'laniakea',              label: 'kind.sg_grid',      color: '#8fa6cf' },
   // the viewer's own place on Earth (Show me); only drawn within ~0.1 AU
   here:         { doc: 'earth',                 label: 'kind.here',         color: '#ffd27a', minScale: 0, maxScale: 5e-7 },
 };

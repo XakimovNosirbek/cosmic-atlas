@@ -1,0 +1,214 @@
+{
+ "built": "2026-11-14T16:32:39Z",
+ "sources": [
+  {
+   "url": "https://projets.ip2i.in2p3.fr//cosmicflows/new_CF4pp_mean_std_grids.npz",
+   "last_modified": "Tue, 13 Oct 2026 08:38:44 GMT",
+   "etag": "6acdee14-a0006be",
+   "bytes": 167773886,
+   "sha256": "b2c8c695c522c286d330a81774334829a2f8b92544990c6978cd8b0d4d43bf3f",
+   "erratum": "vr_mean fixed on 2026-10-13; this file is the post-erratum one",
+   "hmc_steps": 9739,
+   "axis_check_rms_kms": 2.831536286354464e-13
+  },
+  {
+   "url": "https://projets.ip2i.in2p3.fr//cosmicflows/CF4_new_128-z008_watersheds-fits.zip",
+   "member": "CF4_new_128-z008_BoA.fits",
+   "sha256": "9056733ac715cb59622039703afeda096e88a54c6bb977d8c17166eb4ae1c5cc"
+  },
+  {
+   "url": "https://vizier.cfa.harvard.edu/viz-bin/asu-tsv?-source=J/AJ/149/171/table5&-out.all&-out.max=unlimited&-out.form=mini",
+   "rows": 43038,
+   "note": "CDS main down; CfA mirror"
+  },
+  {
+   "url": "https://simbad.cfa.harvard.edu/simbad/sim-id",
+   "use": "cluster centres for names",
+   "clusters": [
+    "Fornax Cluster",
+    "Hydra Cluster",
+    "Abell 3558"
+   ]
+  }
+ ],
+ "outputs": {
+  "density_rg8.bin": 4194304,
+  "basins_u8.bin": 2097152,
+  "streams.bin": 786944,
+  "groups": 6201,
+  "group_members": 23762,
+  "catalogue_entries": 26
+ },
+ "checks": {
+  "streamline_basin_agreement": {
+   "Laniakea": {
+    "seeds": 141,
+    "end_in_same_basin": 0.745,
+    "converged": 1.0
+   },
+   "Apus": {
+    "seeds": 456,
+    "end_in_same_basin": 0.0,
+    "converged": 1.0
+   },
+   "Hercules": {
+    "seeds": 211,
+    "end_in_same_basin": 0.943,
+    "converged": 1.0
+   },
+   "Lepus": {
+    "seeds": 396,
+    "end_in_same_basin": 0.866,
+    "converged": 1.0
+   },
+   "Perseus-Pisces": {
+    "seeds": 354,
+    "end_in_same_basin": 0.997,
+    "converged": 1.0
+   },
+   "Shapley": {
+    "seeds": 387,
+    "end_in_same_basin": 0.889,
+    "converged": 1.0
+   },
+   "SDSS-1a": {
+    "seeds": 247,
+    "end_in_same_basin": 0.834,
+    "converged": 1.0
+   },
+   "SDSS-2a": {
+    "seeds": 205,
+    "end_in_same_basin": 0.473,
+    "converged": 1.0
+   },
+   "SDSS-2b": {
+    "seeds": 187,
+    "end_in_same_basin": 0.604,
+    "converged": 1.0
+   }
+  },
+  "sinks_vs_published_attractors": [
+   {
+    "basin": "Laniakea",
+    "published_sg_h": [
+     -62,
+     -8,
+     39
+    ],
+    "cf4pp_sink_sg_h": [
+     -45.6,
+     8.4,
+     47.4
+    ],
+    "lines": 137,
+    "offset_h_mpc": 24.6
+   },
+   {
+    "basin": "Hercules",
+    "published_sg_h": [
+     -39,
+     70,
+     78
+    ],
+    "cf4pp_sink_sg_h": [
+     -31.0,
+     80.7,
+     84.1
+    ],
+    "lines": 221,
+    "offset_h_mpc": 14.7
+   },
+   {
+    "basin": "Lepus",
+    "published_sg_h": [
+     -62,
+     -39,
+     -109
+    ],
+    "cf4pp_sink_sg_h": [
+     -40.0,
+     -32.6,
+     -98.3
+    ],
+    "lines": 665,
+    "offset_h_mpc": 25.3
+   },
+   {
+    "basin": "Perseus-Pisces",
+    "published_sg_h": [
+     47,
+     -23,
+     -31
+    ],
+    "cf4pp_sink_sg_h": [
+     51.0,
+     -13.7,
+     -29.1
+    ],
+    "lines": 532,
+    "offset_h_mpc": 10.3
+   },
+   {
+    "basin": "Shapley",
+    "published_sg_h": [
+     -141,
+     62,
+     -16
+    ],
+    "cf4pp_sink_sg_h": [
+     -110.6,
+     102.0,
+     6.1
+    ],
+    "lines": 351,
+    "offset_h_mpc": 54.9
+   },
+   {
+    "basin": "SDSS-1a",
+    "published_sg_h": [
+     117,
+     227,
+     -227
+    ],
+    "cf4pp_sink_sg_h": [
+     -19.5,
+     249.4,
+     -182.9
+    ],
+    "lines": 150,
+    "offset_h_mpc": 145.2
+   },
+   {
+    "basin": "SDSS-2a",
+    "published_sg_h": [
+     -102,
+     297,
+     102
+    ],
+    "cf4pp_sink_sg_h": [
+     -106.8,
+     276.5,
+     129.7
+    ],
+    "lines": 66,
+    "offset_h_mpc": 34.8
+   },
+   {
+    "basin": "SDSS-2b",
+    "published_sg_h": [
+     31,
+     289,
+     156
+    ],
+    "cf4pp_sink_sg_h": [
+     87.8,
+     192.2,
+     114.8
+    ],
+    "lines": 69,
+    "offset_h_mpc": 119.5
+   }
+  ]
+ },
+ "seconds": 1.1
+}

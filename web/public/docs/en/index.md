@@ -22,6 +22,7 @@ updated: 2026-11-13
 - [Gaia](doc:gaia-mission): the spacecraft that measured nearly two billion stars.
 - [DESI](doc:desi-survey): the instrument that mapped millions of galaxies in 3D.
 - [Cosmic web](doc:cosmic-web): the giant network of galaxies and voids.
+- [Laniakea and the cosmic flows](doc:laniakea): our home supercluster, the Great Attractor and how galaxies stream.
 
 ## Stars and what they leave behind
 

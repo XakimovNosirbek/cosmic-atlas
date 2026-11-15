@@ -1,0 +1,248 @@
+{
+ "layer": "cosmography",
+ "frame": "supergalactic",
+ "unit": "h^-1 Mpc",
+ "toMap": {
+  "rotation": "GAL_TO_SG (astropy Supergalactic); gal = M^T sg",
+  "pcPerUnit": 1477978.1259237365,
+  "h": 0.6766,
+  "note": "lengths in h^-1 Mpc drawn as L / h_Planck18 Mpc, the scale of the Planck18 redshift layers"
+ },
+ "scale": {
+  "hPlanck18": 0.6766,
+  "H0_cf4": 75.0,
+  "H0_cf4_err": 0.35,
+  "H0_cf4_nominal": 74.6,
+  "cf4OverMap": 0.9021,
+  "ref": "Courtois et al. 2023, A&A 670, L15 (H0 = 75.0 +- 0.35 ungrouped CF4; 74.6 nominal, Tully et al. 2023)"
+ },
+ "grid": {
+  "n": 128,
+  "box_h_mpc": 1000.0,
+  "voxel_h_mpc": 7.8125,
+  "origin_h_mpc": [
+   -500.0,
+   -500.0,
+   -500.0
+  ],
+  "order": "x fastest (SGX), then SGY, then SGZ"
+ },
+ "density": {
+  "file": "density_rg8.bin",
+  "format": "rg8",
+  "bytes": 4194304,
+  "r": {
+   "quantity": "delta (HMC posterior mean density contrast)",
+   "lo": -2.0,
+   "hi": 3.5
+  },
+  "g": {
+   "quantity": "posterior std of delta",
+   "lo": 0.0,
+   "hi": 1.0
+  },
+  "note": "code c -> lo + c/255 (hi - lo); values beyond clipped",
+  "dataRadius_h_mpc": 300.0
+ },
+ "basins": {
+  "file": "basins_u8.bin",
+  "format": "r8",
+  "bytes": 2097152,
+  "names": {
+   "1": "Laniakea",
+   "2": "Apus",
+   "3": "Hercules",
+   "4": "Lepus",
+   "5": "Perseus-Pisces",
+   "6": "Shapley",
+   "7": "SDSS-1a",
+   "8": "SDSS-2a",
+   "9": "SDSS-2b"
+  },
+  "source": "CF4 (2023) ungrouped basins of attraction"
+ },
+ "streams": {
+  "file": "streams.bin",
+  "lines": 2587,
+  "vertices": 63854,
+  "layout": [
+   "float32 x3 per vertex (SG h^-1 Mpc)",
+   "uint32 first vertex per line",
+   "uint16 vertex count per line",
+   "uint8 basin of the seed",
+   "uint8 basin of the end point"
+  ],
+  "seeding": "every 3rd voxel (jittered, seed 7) within 200 h^-1 Mpc; RK4 on v/|v|, step 3.9 h^-1 Mpc, stop at |v| < 15 km/s, r > 420 h^-1 Mpc or no progress over 10 steps; every 2nd point kept",
+  "agreement": {
+   "Laniakea": {
+    "seeds": 141,
+    "end_in_same_basin": 0.745,
+    "converged": 1.0
+   },
+   "Apus": {
+    "seeds": 456,
+    "end_in_same_basin": 0.0,
+    "converged": 1.0
+   },
+   "Hercules": {
+    "seeds": 211,
+    "end_in_same_basin": 0.943,
+    "converged": 1.0
+   },
+   "Lepus": {
+    "seeds": 396,
+    "end_in_same_basin": 0.866,
+    "converged": 1.0
+   },
+   "Perseus-Pisces": {
+    "seeds": 354,
+    "end_in_same_basin": 0.997,
+    "converged": 1.0
+   },
+   "Shapley": {
+    "seeds": 387,
+    "end_in_same_basin": 0.889,
+    "converged": 1.0
+   },
+   "SDSS-1a": {
+    "seeds": 247,
+    "end_in_same_basin": 0.834,
+    "converged": 1.0
+   },
+   "SDSS-2a": {
+    "seeds": 205,
+    "end_in_same_basin": 0.473,
+    "converged": 1.0
+   },
+   "SDSS-2b": {
+    "seeds": 187,
+    "end_in_same_basin": 0.604,
+    "converged": 1.0
+   }
+  },
+  "sinks": [
+   {
+    "basin": "Laniakea",
+    "published_sg_h": [
+     -62,
+     -8,
+     39
+    ],
+    "cf4pp_sink_sg_h": [
+     -45.6,
+     8.4,
+     47.4
+    ],
+    "lines": 137,
+    "offset_h_mpc": 24.6
+   },
+   {
+    "basin": "Hercules",
+    "published_sg_h": [
+     -39,
+     70,
+     78
+    ],
+    "cf4pp_sink_sg_h": [
+     -31.0,
+     80.7,
+     84.1
+    ],
+    "lines": 221,
+    "offset_h_mpc": 14.7
+   },
+   {
+    "basin": "Lepus",
+    "published_sg_h": [
+     -62,
+     -39,
+     -109
+    ],
+    "cf4pp_sink_sg_h": [
+     -40.0,
+     -32.6,
+     -98.3
+    ],
+    "lines": 665,
+    "offset_h_mpc": 25.3
+   },
+   {
+    "basin": "Perseus-Pisces",
+    "published_sg_h": [
+     47,
+     -23,
+     -31
+    ],
+    "cf4pp_sink_sg_h": [
+     51.0,
+     -13.7,
+     -29.1
+    ],
+    "lines": 532,
+    "offset_h_mpc": 10.3
+   },
+   {
+    "basin": "Shapley",
+    "published_sg_h": [
+     -141,
+     62,
+     -16
+    ],
+    "cf4pp_sink_sg_h": [
+     -110.6,
+     102.0,
+     6.1
+    ],
+    "lines": 351,
+    "offset_h_mpc": 54.9
+   },
+   {
+    "basin": "SDSS-1a",
+    "published_sg_h": [
+     117,
+     227,
+     -227
+    ],
+    "cf4pp_sink_sg_h": [
+     -19.5,
+     249.4,
+     -182.9
+    ],
+    "lines": 150,
+    "offset_h_mpc": 145.2
+   },
+   {
+    "basin": "SDSS-2a",
+    "published_sg_h": [
+     -102,
+     297,
+     102
+    ],
+    "cf4pp_sink_sg_h": [
+     -106.8,
+     276.5,
+     129.7
+    ],
+    "lines": 66,
+    "offset_h_mpc": 34.8
+   },
+   {
+    "basin": "SDSS-2b",
+    "published_sg_h": [
+     31,
+     289,
+     156
+    ],
+    "cf4pp_sink_sg_h": [
+     87.8,
+     192.2,
+     114.8
+    ],
+    "lines": 69,
+    "offset_h_mpc": 119.5
+   }
+  ]
+ },
+ "citation": "Courtois et al. 2025, A&A 701, A187 (CF4++ HMC grids; doi:10.1051/0004-6361/202553677); Dupuy & Courtois 2023, A&A 678, A176 (CF4 watersheds, Table 1)",
+ "license": "no licence stated by the provider: 'If you use this data cite the article above'"
+}
