@@ -21,6 +21,11 @@ for science:
 
 Usage (from the repo root or web/):
     .venv/bin/python web/scripts/make_synthetic_tiles.py [--stars N] [--galaxies N] [--seed S]
+    .venv/bin/python web/scripts/make_synthetic_tiles.py --moving 5700000
+        only the GPU-orbit stress layer synthetic-stars-moving (~4 M stars after the G < 20 cut),
+        the same stars plus space velocities: a disc velocity ellipsoid relative to the Sun
+        (mean (-11, -20, -7) km/s, sigma (35, 22, 18)), 3 % halo-like (sigma 150 km/s), 15 % without
+        a radial velocity (tangential-only), written as Gaia-like pmra/pmdec/radial_velocity
 """
 
 from __future__ import annotations
@@ -265,6 +270,26 @@ def write_raw(layer: str, cols: dict, note: str):
     print(f"  {layer}: {len(cols['ra']):,} rows -> {out / 'synthetic.parquet'}")
 
 
+def add_velocities(rng, cols):
+    """synthetic pmra / pmdec (mas/yr) / radial_velocity (km/s) for a star table (see the docstring)"""
+    n = len(cols["ra"])
+    halo = rng.random(n) < 0.03
+    v = rng.normal([-11.0, -20.0, -7.0], [35.0, 22.0, 18.0], (n, 3))
+    v[halo] = rng.normal([0.0, -230.0, 0.0], 150.0, (halo.sum(), 3))
+    v_icrs = v @ ICRS_TO_GAL  # row-vector form of M^T @ v
+    ra, dec = np.radians(cols["ra"]), np.radians(cols["dec"])
+    sa, ca, sd, cd = np.sin(ra), np.cos(ra), np.sin(dec), np.cos(dec)
+    e_ra = np.stack([-sa, ca, np.zeros(n)], 1)
+    e_dec = np.stack([-sd * ca, -sd * sa, cd], 1)
+    r_hat = np.stack([cd * ca, cd * sa, sd], 1)
+    kd = 4.740470463533349e-3 * cols["dist_pc"]
+    cols["pmra"] = np.einsum("ij,ij->i", v_icrs, e_ra) / kd
+    cols["pmdec"] = np.einsum("ij,ij->i", v_icrs, e_dec) / kd
+    rv = np.einsum("ij,ij->i", v_icrs, r_hat)
+    cols["radial_velocity"] = np.where(rng.random(n) < 0.15, np.nan, rv)
+    return cols
+
+
 def build(layer: str, *args: str):
     cmd = [str(PY), str(REPO / "pipeline" / "build_tiles.py"), layer, *args]
     print("  $", " ".join(cmd[1:]))
@@ -277,8 +302,17 @@ def main():
     ap.add_argument("--galaxies", type=int, default=1_800_000)
     ap.add_argument("--seed", type=int, default=20261113)
     ap.add_argument("--no-build", action="store_true", help="only write the raw Parquet")
+    ap.add_argument("--moving", type=int, default=0, help="only the moving stress layer, this many stars before the G cut")
     a = ap.parse_args()
     rng = np.random.default_rng(a.seed)
+    if a.moving:
+        print("synthetic moving stars (GPU orbit stress layer)")
+        write_raw("synthetic-stars-moving", add_velocities(rng, make_stars(rng, a.moving)),
+                  "Gaia-like disc + clusters inside 1 kpc, synthetic space velocities")
+        if not a.no_build:
+            build("synthetic-stars-moving", "--order", "lum", "--kind-model", "star", "--velocity", "helio",
+                  "--title", "Synthetic moving stars (dev data, not real)", "--id-prefix", "SYN-M ")
+        return
     print("synthetic stars")
     write_raw("synthetic-stars", make_stars(rng, a.stars), "Gaia-like disc + clusters inside 1 kpc")
     print("synthetic galaxies")

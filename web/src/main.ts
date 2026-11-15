@@ -46,6 +46,11 @@ import { SOLAR_LABEL_MAX, SolarSystem, TimeBar, flyTargetForLatLon, observerGala
 // Loaded after the catalogues (dynamic import): nothing of it is needed for the first frame.
 import type { BlackHoleFeature } from './blackhole';
 import { StarEpoch } from './solar/epoch';
+import { orbitConfig } from './orbits/gpu';
+import { orbitAt, orbitClosestApproach, orbitSummary } from './orbits/integrate';
+import { decodeStory, storyTour, type SavedState } from './state/states';
+import { StatesPanel } from './ui/states';
+import { myrToSlider, sliderToMyr } from './solar/epoch';
 import { formatEpoch } from './solar/timebar';
 // --- GW hook (web/src/render/gwVolumes.ts, web/src/objects/gw.ts): localisation volumes, card note and links
 import { GwVolumes } from './render/gwVolumes';
@@ -146,6 +151,9 @@ export class App {
   epoch = new StarEpoch();
   private epochRefreshT = 0;
   private epochRefreshTimer = 0;
+  private orbitRefineTimer = 0;
+  /** saved views dialog (state/states.ts) */
+  statesPanel!: StatesPanel;
   /** catalogue labels that sit at today's position (hidden while the epoch is far from now) */
   private epochLabels: LabelItem[] = [];
   private solarInfoT = 0;
@@ -190,6 +198,8 @@ export class App {
     }
     const be = (this.renderer as unknown as { backend: { isWebGPUBackend?: boolean } }).backend;
     this.backend = be.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
+    // star orbits: one compute pass per epoch change on WebGPU (?orbits=vertex: in the vertex shader, as on WebGL2)
+    orbitConfig.compute = this.backend === 'WebGPU' && new URLSearchParams(location.search).get('orbits') !== 'vertex';
     this.renderer.setClearColor(0x000000, 0);
     this.camera.up.set(0, 0, 1);
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -217,6 +227,23 @@ export class App {
     this.timebar = new TimeBar(this.solar.clock, this.epoch);
     this.epoch.onChange(() => this.onEpoch());
     document.body.appendChild(this.timebar.el);
+    this.statesPanel = new StatesPanel({
+      currentHash: () => this.hashNow(),
+      go: (s) => {
+        if (location.hash === s.hash) void this.onHashChange();
+        else location.hash = s.hash;
+      },
+      play: (list) => this.playStory(list),
+      copy: async (text) => {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      status: (msg, kind) => this.status(msg, kind ?? 'info'),
+    });
     const onClock = this.solar.clock.onChange;
     this.solar.clock.onChange = () => {
       onClock();
@@ -268,6 +295,7 @@ export class App {
     if (h.focus) this.focusByName(h.focus);
     else if (h.at) this.goToAnchor(h.at, h.look);
     if (h.layer || h.focus) this.writeHash(); // drop the one-shot params
+    if (h.story) this.playStoryParam(h.story);
   }
 
   /** the UI language changed: re-render everything built from strings */
@@ -278,6 +306,7 @@ export class App {
     if (this.labels) this.buildLabels();
     this.refreshOutputs();
     this.timebar?.relabel();
+    this.statesPanel?.relabel();
     if (!$('info').hidden) this.infoRefresh?.();
     if (this.tourAbort && this.tourBeat) this.showCaption(this.tourBeat);
     const tb = $('tour').querySelector('span')!;
@@ -808,6 +837,8 @@ export class App {
     this.pv.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.pv);
     const st = this.streamer.update({ camPos: cam, frustum: this.frustum, pxPerRad, frame: this.frame, dt });
+    const orbitPasses = this.streamer.orbitKernels();
+    if (orbitPasses.length) void this.renderer.compute(orbitPasses);
 
     // adaptive near/far from the nearest / farthest drawn node (contract section 5)
     const nearest = Math.min(st.nearestPc, D);
@@ -1132,8 +1163,8 @@ export class App {
     const vel: Vec3 | null = velAll ? [velAll[i * 4] - sv[0], velAll[i * 4 + 1] - sv[1], velAll[i * 4 + 2] - sv[2]] : null;
     const q = velAll ? velAll[i * 4 + 3] : NaN;
     const moved = !!vel && ep !== 0;
-    const k = ep * PC_PER_KMS_MYR;
-    const xyz: Vec3 = moved ? [x0[0] + vel![0] * k, x0[1] + vel![1] * k, x0[2] + vel![2] * k] : x0;
+    // its Galactic orbit relative to the Sun's (orbits/integrate.ts, float64; the GPU draws the same to ~1e-3)
+    const xyz: Vec3 = moved ? orbitAt(x0, vel!, ep) : x0;
     const dist = Math.hypot(...xyz);
     const dist0 = Math.hypot(...x0);
     const flyView: Partial<View> = { focus: xyz, dist: kind === 'star' ? Math.max(0.2, Math.min(5, dist * 0.02)) : 2e5 };
@@ -1205,7 +1236,20 @@ export class App {
     this.dirty = true;
   }
 
-  /** space velocity and the straight-line closest approach to the Sun (velocity relative to the Sun) */
+  /** a star's orbit summary, cached (1 Gyr of leapfrog, ~1 ms; the card refreshes while the slider moves) */
+  private orbitCache = new Map<string, ReturnType<typeof orbitSummary>>();
+  private orbitOf(x0: Vec3, v: Vec3) {
+    const key = [...x0, ...v].join(',');
+    let s = this.orbitCache.get(key);
+    if (!s) {
+      s = orbitSummary(x0, v);
+      if (this.orbitCache.size > 64) this.orbitCache.clear();
+      this.orbitCache.set(key, s);
+    }
+    return s;
+  }
+
+  /** space velocity, the Galactic orbit and the closest approach to the Sun (velocity relative to the Sun) */
   private velocityRows(x0: Vec3, v: Vec3, q: number): [string, string][] {
     const speed = Math.hypot(...v);
     const d0 = Math.hypot(...x0) || 1;
@@ -1215,10 +1259,16 @@ export class App {
     else if (q === VEL_Q.tangential) out.push([t('row.velocity'), t('row.velocityTangential', { v: fmtFixed(speed, 1) })]);
     else out.push([t('row.velocity'), t('row.velocityNone')]);
     if (q === VEL_Q.full) {
-      const ca = closestApproach(x0, v);
+      // along both Galactic orbits; the straight line only when no minimum falls within ±100 Myr
+      const orb = orbitClosestApproach(x0, v);
+      const ca = orb ?? closestApproach(x0, v);
       const when = formatEpoch(Math.abs(ca.tMyr)).replace(/^[+−]/, '');
       const d = `${formatDistance(ca.dPc, 3)}${formatLy(ca.dPc) ? ` (${formatLy(ca.dPc)})` : ''}`;
-      out.push([t('row.closest'), t(ca.tMyr >= 0 ? 'row.closestValue' : 'row.closestPast', { d, t: when })]);
+      out.push([t(orb ? 'row.closest' : 'row.closestLinear'), t(ca.tMyr >= 0 ? 'row.closestValue' : 'row.closestPast', { d, t: when })]);
+      const s = this.orbitOf(x0, v);
+      out.push([t('row.orbit'), t('row.orbitValue', {
+        r1: fmtFixed(s.rMin / 1000, 2), r2: fmtFixed(s.rMax / 1000, 2), z: fmtFixed(s.zMax, 0), p: fmtFixed(s.period, 0),
+      })]);
     }
     return out;
   }
@@ -1460,6 +1510,11 @@ export class App {
   /** the slider moved: shader offset, labels, URL, and the open info card (throttled to ~8 Hz) */
   private onEpoch() {
     this.streamer.setEpoch(this.epoch.myr);
+    // big layers show a coarse orbit track while the slider moves; the full one once it rests
+    window.clearTimeout(this.orbitRefineTimer);
+    this.orbitRefineTimer = window.setTimeout(() => {
+      if (this.streamer.refineOrbits()) this.dirty = true;
+    }, 200);
     this.applyEpochLabels();
     this.dirty = true;
     this.scheduleHash();
@@ -1632,6 +1687,7 @@ export class App {
     });
     const help = $<HTMLDialogElement>('help');
     $('help-btn').addEventListener('click', () => help.showModal());
+    $('states-btn').addEventListener('click', () => this.statesPanel.open());
 
     this.rail.onPick = (logD, commit) => {
       this.stopTour(false);
@@ -1949,6 +2005,8 @@ export class App {
       view: { ...this.nav.view, focus: [...this.nav.view.focus] as Vec3 },
       layers: this.layerVisibility(),
       sel: this.selection,
+      epoch: this.epoch.myr,
+      slab: this.slabMpc,
     };
     let stopped = false;
     const restore = (restoreView: boolean) => {
@@ -1958,8 +2016,12 @@ export class App {
       btn.setAttribute('aria-pressed', 'false');
       btn.querySelector('span')!.textContent = t(SCALE_TOUR.label);
       this.tourBeat = null;
+      window.cancelAnimationFrame(this.epochTween);
+      if (tour.keepScene) return; // a story ends in its last saved view
       for (const [id, on] of Object.entries(snap.layers)) if (this.layerVisibility()[id] !== on) this.setLayerVisible(id, on);
       if (snap.sel) this.selection = snap.sel;
+      if (this.epoch.myr !== snap.epoch) this.epoch.set(snap.epoch);
+      if (this.slabMpc !== snap.slab) this.setSlab(snap.slab);
       if (restoreView) void this.nav.flyTo(snap.view);
     };
     this.tourAbort = restore;
@@ -1973,11 +2035,20 @@ export class App {
       if (stopped) return;
       const r = resolveBeat(beat, ctx); // targets resolved now, at playback
       for (const id of beat.show ?? []) this.setLayerVisible(id, true);
+      // --- saved views: the state's layers (others back to their defaults), slab and star epoch
+      if (beat.layers) {
+        const want = { ...this.layerDefaults(), ...beat.layers };
+        for (const [id, on] of Object.entries(this.layerVisibility())) if (want[id] !== undefined && want[id] !== on) this.setLayerVisible(id, want[id]);
+      }
+      if (beat.slab !== undefined && beat.slab !== this.slabMpc) this.setSlab(beat.slab);
+      if (beat.epochMyr !== undefined) this.tweenEpoch(beat.epochMyr, 1800);
+      if (beat.caption) this.closeInfo();
       this.showCaption(beat);
       this.solar.attach(null);
       const ok = await this.nav.flyTo({ focus: r.focus, dist: r.dist, pitch: r.pitch, ...(r.yaw !== undefined ? { yaw: r.yaw } : {}) }, { durationScale: 1.15 });
       if (!ok || stopped) return;
       if (beat.follow) this.solar.attach(beat.follow as 'earth'); // moving body: keep the focus on it
+      if (beat.sel) void this.restoreSelection(beat.sel);
       await new Promise((res) => setTimeout(res, this.nav.reducedMotion ? 4000 : beat.dwellMs));
     }
     if (tour.stayAtEnd) {
@@ -1990,6 +2061,39 @@ export class App {
       return;
     }
     this.stopTour(true);
+  }
+
+  private epochTween = 0;
+
+  /** ease the star epoch to `myr` over `ms`, evenly along the slider's log scale */
+  private tweenEpoch(myr: number, ms: number) {
+    window.cancelAnimationFrame(this.epochTween);
+    const p0 = myrToSlider(this.epoch.myr);
+    const p1 = myrToSlider(myr);
+    if (p0 === p1 || this.nav.reducedMotion) return void this.epoch.set(myr);
+    const t0 = performance.now();
+    const step = () => {
+      const f = Math.min(1, (performance.now() - t0) / ms);
+      const e = f * f * (3 - 2 * f);
+      this.epoch.set(f >= 1 ? myr : sliderToMyr(p0 + (p1 - p0) * e));
+      if (f < 1) this.epochTween = window.requestAnimationFrame(step);
+    };
+    this.epochTween = window.requestAnimationFrame(step);
+  }
+
+  /** play saved views in order (the tour runner; the story stays in its last view) */
+  playStory(list: SavedState[]) {
+    if (!list.length) return;
+    this.stopTour(false);
+    void this.runTour(storyTour(list));
+  }
+
+  /** `#story=` link: play it once the layers are in, then drop it from the URL */
+  private playStoryParam(v: string) {
+    const list = decodeStory(v);
+    if (!list.length) return this.status(t('states.storyBroken'), 'warn');
+    this.writeHash();
+    this.playStory(list);
   }
 
   /** caption of a tour beat in the current language */
@@ -2016,11 +2120,17 @@ export class App {
   }
 
   private writeHash() {
-    const v = this.nav.view;
     if (this.tourAbort) return; // a tour ends with its own scheduleHash()
     if (this.nav.flying) return void this.scheduleHash(); // try again once the flight lands
+    const h = this.hashNow();
+    if (location.hash !== h) history.replaceState(null, '', h);
+  }
+
+  /** the current view as a URL hash (camera, layers, slab, epoch, selection, open article) */
+  hashNow(): string {
+    const v = this.nav.view;
     const at = this.hashAnchor();
-    const h = formatHash({
+    return formatHash({
       view: { focus: v.focus, dist: v.dist, yawDeg: v.yaw * DEG, pitchDeg: v.pitch * DEG },
       at: at ?? undefined,
       look: at ? { dist: v.dist, yawDeg: v.yaw * DEG, pitchDeg: v.pitch * DEG } : undefined,
@@ -2031,7 +2141,6 @@ export class App {
       epochYr: this.epoch.myr ? this.epoch.myr * 1e6 : undefined,
       doc: this.docs.current ?? undefined,
     });
-    if (location.hash !== h) history.replaceState(null, '', h);
   }
 
   /** name of the object the camera focus sits on (followed Solar System body, or the selected
@@ -2053,6 +2162,14 @@ export class App {
 
   /** layer visibility that differs from each layer's default (keeps shared URLs short) */
   private layerDiff(): Record<string, boolean> {
+    const def = this.layerDefaults();
+    const out: Record<string, boolean> = {};
+    for (const [id, on] of Object.entries(this.layerVisibility())) if (def[id] !== on) out[id] = on;
+    return out;
+  }
+
+  /** every layer's default visibility (layers.json and the built-in layers) */
+  private layerDefaults(): Record<string, boolean> {
     const def: Record<string, boolean> = {};
     // every layer in layers.json (dust, GW volumes, small bodies, satellites ... included), so a
     // layer left at its default never lands in the URL
@@ -2062,9 +2179,7 @@ export class App {
     if (this.skyCfg) def[this.skyCfg.id] = this.skyCfg.visible;
     def.solar = true;
     Object.assign(def, this.msg.defaults()); // --- Messengers hook
-    const out: Record<string, boolean> = {};
-    for (const [id, on] of Object.entries(this.layerVisibility())) if (def[id] !== on) out[id] = on;
-    return out;
+    return def;
   }
 
   /** go to a named anchor (at=) and, once the flight settles, apply the stored distance and angles */
@@ -2100,6 +2215,7 @@ export class App {
     if (h.focus || h.layer) {
       this.writeHash(); // drop the one-shot focus= from the URL
     }
+    if (h.story) return this.playStoryParam(h.story);
     if (h.layers) for (const [id, on] of Object.entries(h.layers)) if (this.layerVisibility()[id] !== undefined && this.layerVisibility()[id] !== on) this.setLayerVisible(id, on);
     const cur = this.selection?.ref;
     if (h.sel && JSON.stringify(h.sel) !== JSON.stringify(cur)) void this.restoreSelection(h.sel);

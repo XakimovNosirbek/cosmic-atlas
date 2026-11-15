@@ -6,7 +6,9 @@
 import type { App } from '../main';
 import type { View } from '../nav/controller';
 import { radecDistToGal, type Vec3 } from '../math/frames';
-import { PC_PER_KMS_MYR, readExtRecord } from '../tiles/format';
+import { readExtRecord } from '../tiles/format';
+import { gpuDisplacement, gpuPosition } from '../orbits/integrate';
+import { encodeStory } from '../state/states';
 import { searchCatalog } from '../data/resolve';
 import { flyTargetForLatLon } from '../solar';
 import type { Satellites } from '../solar/satellites';
@@ -239,24 +241,107 @@ export function installDebugApi(app: App) {
     setEpoch: (myr: number) => app.epoch.set(myr),
     epoch: () => app.epoch.myr,
     /**
-     * test hook: the brightest on-screen moving point of a layer, its catalogue id and its CPU-moved
-     * position projected to CSS px (to check that the GPU pick finds it at the same place)
+     * wall time of one orbit compute pass over every drawn moving node (WebGPU), median of `runs`:
+     * dispatch + wait for the GPU queue; points and steps for the record
      */
-    movedProbe: async (layerId: string) => {
+    timeOrbitPass: async (runs = 5) => {
+      const dev = (app.renderer as unknown as { backend: { device?: GPUDevice } }).backend.device;
+      if (!dev) return null;
+      const ms: number[] = [];
+      let points = 0;
+      for (let k = 0; k < runs; k++) {
+        await dev.queue.onSubmittedWorkDone();
+        const passes = app.streamer.orbitKernels(true);
+        if (!passes.length) return null; // vertex-shader path (WebGL2, ?orbits=vertex)
+        points = passes.reduce((a, c) => a + ((c as unknown as { count: number }).count ?? 0), 0);
+        const t0 = performance.now();
+        await app.renderer.computeAsync(passes);
+        await dev.queue.onSubmittedWorkDone();
+        ms.push(performance.now() - t0);
+      }
+      ms.sort((a, b) => a - b);
+      return { medianMs: ms[Math.floor(ms.length / 2)], minMs: ms[0], points, steps: app.streamer.track?.n ?? 0 };
+    },
+    /** saved views (state/states.ts): save the current view, list, open the dialog, play as a story */
+    states: {
+      save: (name: string) => app.statesPanel.save(name),
+      list: () => app.statesPanel.states,
+      clear: () => {
+        for (let i = app.statesPanel.states.length - 1; i >= 0; i--) app.statesPanel.remove(i);
+      },
+      open: () => app.statesPanel.open(),
+      play: () => app.playStory(app.statesPanel.states),
+      hash: () => app.hashNow(),
+      /** '#story=…' for the saved list */
+      storyHash: () => `#story=${encodeStory(app.statesPanel.states)}`,
+    },
+    /** leapfrog steps the shader runs per point at this epoch (orbits/gpu.ts) */
+    orbitSteps: () => app.streamer.track?.n ?? 0,
+    /**
+     * GPU vs JS: read back the `orb` buffers (compute path) of up to maxNodes drawn moving nodes of a
+     * layer and compare every point with gpuDisplacement() in float64. Returns the worst absolute
+     * (pc) and relative (to the displacement) differences.
+     */
+    orbitReadback: async (layerId: string, maxNodes = 8) => {
+      const tr = app.streamer.track;
+      if (!tr) return null;
+      let worstAbs = 0;
+      let worstRel = 0;
+      let points = 0;
+      let nodes = 0;
+      let worstAt: { node: string; i: number; gpu: number[]; js: number[] } | null = null;
+      const errs: number[] = [];
+      const bad: { i: number; node: string; d: number; disp: number; v: number }[] = [];
+      for (const n of app.streamer.drawn()) {
+        if (n.layer.cfg.id !== layerId || !n.orb || !n.data || !n.velData || !app.streamer.moving(n)) continue;
+        if (nodes++ >= maxNodes) break;
+        const buf = new Float32Array(await app.renderer.getArrayBufferAsync(n.orb.attr));
+        const sv = n.layer.meta!.velocity!.sunVelocity;
+        const c = n.meta.center;
+        for (let i = 0; i < n.meta.count; i++) {
+          const p0 = [0, 1, 2].map((ax) => c[ax] + n.data!.positions[i * 3 + ax]);
+          const v = [0, 1, 2].map((ax) => n.velData![i * 4 + ax] - sv[ax]);
+          const js = gpuDisplacement(p0, v, tr);
+          const g = [buf[i * 4], buf[i * 4 + 1], buf[i * 4 + 2]];
+          const d = Math.hypot(g[0] - js[0], g[1] - js[1], g[2] - js[2]);
+          const rel = d / Math.max(Math.hypot(...js), 1e-9);
+          if (d > worstAbs) {
+            worstAbs = d;
+            worstAt = { node: n.meta.name, i, gpu: g, js };
+          }
+          worstRel = Math.max(worstRel, rel);
+          errs.push(d);
+          if (rel > 1e-3) bad.push({ i, node: n.meta.name, d, disp: Math.hypot(...js), v: Math.hypot(...v) });
+          points++;
+        }
+      }
+      errs.sort((a, b) => a - b);
+      const q = (f: number) => errs[Math.min(errs.length - 1, Math.floor(f * errs.length))];
+      return { epochMyr: tr.t, steps: tr.n, nodes: Math.min(nodes, maxNodes), points, worstAbsPc: worstAbs, worstRel, p50Pc: q(0.5), p99Pc: q(0.99), p999Pc: q(0.999),
+        nRelOver1e3: bad.length, bad: bad.sort((a, b) => b.d - a.d).slice(0, 5), worstAt };
+    },
+    /**
+     * test hook: the brightest on-screen moving point of a layer, its catalogue id and its position
+     * from the shader's JS twin (orbits/integrate.ts gpuPosition) projected to CSS px, to check that
+     * the GPU pick finds it at the same place
+     */
+    movedProbe: async (layerId: string, fullOnly = false) => {
       const cam = app.nav.camPos();
       let best: { id: string; x: number; y: number; xyz: Vec3; lum: number } | null = null;
       for (const n of app.streamer.drawn()) {
         if (n.layer.cfg.id !== layerId || !n.data || !app.streamer.moving(n) || !n.velData) continue;
         const ext = await n.layer.loadExt(n);
         const sv = n.layer.meta!.velocity!.sunVelocity;
-        const k = app.epoch.myr * PC_PER_KMS_MYR;
+        const tr = app.streamer.track;
         for (let i = 0; i < n.meta.count; i++) {
           const lum = n.data.rgbl[i * 4 + 3];
           if (best && lum <= best.lum) continue;
+          if (fullOnly && n.velData[i * 4 + 3] !== 1) continue; // only stars with a radial velocity (orbit card)
           const c = n.meta.center;
           const p = n.data.positions;
           const v = n.velData;
-          const xyz: Vec3 = [0, 1, 2].map((ax) => c[ax] + p[i * 3 + ax] + (v[i * 4 + ax] - sv[ax]) * k) as Vec3;
+          const p0 = [0, 1, 2].map((ax) => c[ax] + p[i * 3 + ax]);
+          const xyz = gpuPosition(p0, [0, 1, 2].map((ax) => v[i * 4 + ax] - sv[ax]), tr) as Vec3;
           const s = app.project(xyz, cam);
           if (!s || s.x < 40 || s.y < 40 || s.x > window.innerWidth - 40 || s.y > window.innerHeight - 200) continue;
           best = { id: readExtRecord(ext, i, n.layer.extStride).id.toString(), x: s.x, y: s.y, xyz, lum };

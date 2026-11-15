@@ -1,12 +1,12 @@
 /**
  * Time control, two rows:
  *   Solar System: date readout, pause/play, ×1 / ×10⁴ / ×10⁶ / 1 yr per second, Now (clock.ts)
- *   Stars:        log slider −1 Myr … Now … +1 Myr (epoch.ts), readout, Now, and the honesty note
+ *   Stars:        log slider −100 Myr … Now … +100 Myr (epoch.ts), readout, Now, and the honesty note
  * Each row shows only where it means something (main.ts decides); the bar hides when both are off.
  */
 
 import { SPEEDS, type SimClock } from './clock';
-import { EPOCH_TICKS, SLIDER_MAX, epochParts, myrToSlider, sliderToMyr, type StarEpoch } from './epoch';
+import { EPOCH_TICKS, EPOCH_TICK_LABELS, SLIDER_MAX, epochParts, myrToSlider, sliderToMyr, type StarEpoch } from './epoch';
 import { t } from '../i18n';
 import { tr } from './strings';
 
@@ -120,7 +120,7 @@ export class TimeBar {
     this.slider.title = t('time.starsHint'); // the hint line itself only shows while the stars are moved
     this.ticks.textContent = '';
     for (const yr of EPOCH_TICKS) {
-      if (Math.abs(yr) === 1e3 || Math.abs(yr) === 1e5) continue; // labels every 2 decades; the track itself is uniform per decade
+      if (!EPOCH_TICK_LABELS.has(yr)) continue;
       const s = document.createElement('span');
       s.style.left = `${((myrToSlider(yr / 1e6) + SLIDER_MAX) / (2 * SLIDER_MAX)) * 100}%`;
       s.textContent = yr === 0 ? t('time.epoch.now') : formatEpoch(yr / 1e6);

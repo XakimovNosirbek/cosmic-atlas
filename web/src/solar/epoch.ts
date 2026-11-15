@@ -1,19 +1,24 @@
 /**
- * Star epoch: how far from "now" the star layers are shown, Δt in Myr (+ = future). Stars move on
- * straight lines with their measured space velocities (tiles `.vel.bin`, docs/data-contract.md §3);
- * the Solar System clock (clock.ts) is separate, because planetary ephemerides mean nothing at kyr.
+ * Star epoch: how far from "now" the star layers are shown, Δt in Myr (+ = future). Stars follow
+ * Galactic orbits in a smooth axisymmetric Milky Way potential (orbits/, MWPotential2014) from
+ * their measured space velocities (tiles `.vel.bin`, docs/data-contract.md §3), drawn relative to
+ * where the Sun will be. The Solar System clock (clock.ts) is separate, because planetary
+ * ephemerides mean nothing at kyr.
  *
  * The slider is logarithmic in |Δt| on both sides of a "now" dead zone:
  *   p ∈ [−SLIDER_MAX, SLIDER_MAX], |p| ≤ DEAD → 0, else |Δt| = 10^(log10 MIN_YR + (|p|−DEAD)/(SLIDER_MAX−DEAD) · decades)
- * so 100 yr … 1 Myr each get an equal share of the track.
+ * so 100 yr … 100 Myr each get an equal share of the track.
  */
 
 export const SLIDER_MAX = 1000;
 export const SLIDER_DEAD = 16;
 /** smallest non-zero |Δt| on the slider, years */
 export const MIN_YR = 100;
-/** largest |Δt|, years: linear motion is not trustworthy much beyond this (Bailer-Jones 2015) */
-export const MAX_YR = 1e6;
+/**
+ * largest |Δt|, years. Orbits in a smooth potential ignore spiral arms, the bar, molecular clouds
+ * and stellar encounters, so beyond ~100 Myr individual positions are illustrative only.
+ */
+export const MAX_YR = 1e8;
 const DECADES = Math.log10(MAX_YR / MIN_YR);
 
 /** slider position → Δt in Myr */
@@ -52,7 +57,9 @@ export function epochParts(myr: number): { sign: -1 | 0 | 1; value: number; unit
 }
 
 /** slider tick marks: Δt in years */
-export const EPOCH_TICKS = [-1e6, -1e5, -1e4, -1e3, 0, 1e3, 1e4, 1e5, 1e6];
+export const EPOCH_TICKS = [-1e8, -1e7, -1e6, -1e5, -1e4, -1e3, 0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8];
+/** ticks that get a text label (every third decade, so they fit a phone-width track) */
+export const EPOCH_TICK_LABELS = new Set([-1e8, -1e5, 0, 1e5, 1e8]);
 
 /**
  * Stars without a measured radial velocity move only across the sky. Their unknown line-of-sight

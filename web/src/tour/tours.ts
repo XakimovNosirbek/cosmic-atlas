@@ -7,6 +7,7 @@
 
 import { t } from '../i18n';
 import type { Vec3 } from '../math/frames';
+import type { SelRef } from '../state/hash';
 
 export type TargetRef =
   | { sun: true }
@@ -39,6 +40,16 @@ export interface Beat {
   sunSide?: boolean;
   /** keep the focus locked to this Solar System body after arriving (it moves ~30 km/s) */
   follow?: string;
+  /** caption as plain text (saved views carry the user's own name), instead of the i18n keys */
+  caption?: { title: string; text: string };
+  /** saved views: layer visibility that differs from the defaults (every other layer goes back to its default) */
+  layers?: Record<string, boolean>;
+  /** saved views: star epoch, Myr (eased in during the flight) */
+  epochMyr?: number;
+  /** saved views: what to select on arrival */
+  sel?: SelRef;
+  /** saved views: thin-slab half-thickness, Mpc (0 = off) */
+  slab?: number;
 }
 
 export interface Tour {
@@ -47,6 +58,8 @@ export interface Tour {
   beats: Beat[];
   /** stay at the last beat instead of flying back to where the tour started */
   stayAtEnd?: boolean;
+  /** leave the layers, epoch and selection of the last beat in place (stories of saved views) */
+  keepScene?: boolean;
 }
 
 export interface TourContext {
@@ -90,8 +103,8 @@ export function resolveBeat(b: Beat, ctx: TourContext) {
     dist,
     pitch,
     yaw,
-    title: t(b.title),
-    text: t(b.text, { edgeLookback: ctx.lookbackText(edge * 0.9) }),
+    title: b.caption ? b.caption.title : t(b.title),
+    text: b.caption ? b.caption.text : t(b.text, { edgeLookback: ctx.lookbackText(edge * 0.9) }),
   };
 }
 

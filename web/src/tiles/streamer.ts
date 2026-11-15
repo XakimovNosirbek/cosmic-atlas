@@ -25,12 +25,20 @@ import type { PointLayerConfig } from '../data/manifest';
 import { fetchJson } from '../data/tilebase';
 import { createBlobMaterial, createLayerMaterials, makeNodeGeometry, QUAD, type LayerMaterials, type PointUniforms } from '../render/pointMaterial';
 import { droppedNodeMeta, isDroppedNode, ownLight, subtreeRms } from './blobs';
+import { driftBound, gpuTrack, type GpuTrack } from '../orbits/integrate';
+import { makeOrbitKernel, orbitConfig, setOrbitTrack, type OrbitKernel } from '../orbits/gpu';
 
 const SQRT3 = Math.sqrt(3);
 /** seconds for a full split/merge cross-fade */
 export const FADE_S = 0.35;
 /** at most this many drawn nodes get their pick records loaded for the uncertainty view */
 export const UNC_NODE_BUDGET = 32;
+/**
+ * orbit work per epoch change (points x leapfrog steps) above which the slider first shows a
+ * coarse track (fewer, longer steps) and the full one ~0.2 s after it stops moving: 4 M stars at
+ * 128 steps take ~30 ms of GPU time on an Apple M4 Pro, too long for every frame of a drag
+ */
+export const DRAG_POINT_STEPS = 3.2e7;
 
 export enum NodeState {
   Unloaded = 0,
@@ -57,6 +65,9 @@ export interface TileNode {
   vel: Promise<Float32Array> | null;
   /** decoded velocities (vx, vy, vz km/s, q) per point, also bound as the `vel` attribute */
   velData: Float32Array | null;
+  /** WebGPU: the node's orbit compute pass and its output (`orb` attribute), and the epoch it holds */
+  orb?: OrbitKernel | null;
+  orbVersion?: number;
   ownAlpha: number;
   blobAlpha: number;
   slot: number;
@@ -290,6 +301,12 @@ export class Streamer {
   uncertainty = false;
   /** star epoch, Myr from now (solar/epoch.ts); 0 = the catalogue positions */
   private epoch = 0;
+  /** the Sun's coarse-step orbit for the shader at this epoch (orbits/integrate.ts gpuTrack) */
+  track: GpuTrack | null = null;
+  /** bumped on every epoch change; a node's `orb` buffer is current when its orbVersion matches */
+  private trackVersion = 0;
+  /** the full-step track, while a coarse one is shown during a drag (refineOrbits() swaps it in) */
+  private fineTrack: GpuTrack | null = null;
   /**
    * a subtree may be drawn as a blob only when its light is unresolved: 2 × RMS radius projects to at
    * most this many device px. Larger subtrees are queued for loading instead; if the budget does not
@@ -345,10 +362,42 @@ export class Streamer {
     return this.epoch;
   }
 
-  /** move the star layers to Δt Myr: sets the shader offset; velocity streams load lazily in update() */
+  /** move the star layers to Δt Myr: the Sun's track for the shader's orbits; velocity streams load lazily in update() */
   setEpoch(myr: number) {
+    if (myr === this.epoch) return;
     this.epoch = myr;
+    const fine = gpuTrack(myr);
+    this.fineTrack = null;
+    this.track = fine;
+    const pts = this.movingPoints();
+    if (fine && pts * fine.n > DRAG_POINT_STEPS) {
+      // ≥ 8 steps: h ≤ 12.5 Myr keeps leapfrog stable for the ~80 Myr vertical oscillation (ν h ≈ 1)
+      const n = Math.max(8, Math.floor(DRAG_POINT_STEPS / pts));
+      if (n < fine.n) {
+        this.track = gpuTrack(myr, n, Math.min(n, fine.n));
+        this.fineTrack = fine;
+      }
+    }
+    this.trackVersion++;
+    setOrbitTrack(this.track);
     for (const L of this.layers) L.uniforms.dtPc.value = myr * PC_PER_KMS_MYR;
+  }
+
+  /** after a drag: show the full-step orbits if a coarse track is up; true when something changed */
+  refineOrbits(): boolean {
+    if (!this.fineTrack) return false;
+    this.track = this.fineTrack;
+    this.fineTrack = null;
+    this.trackVersion++;
+    setOrbitTrack(this.track);
+    return true;
+  }
+
+  /** stars of the drawn nodes that carry velocities (the orbit work of one epoch change) */
+  private movingPoints(): number {
+    let n = 0;
+    for (const t of this.loaded) if (t.velData && t.points?.visible) n += t.meta.count;
+    return n;
   }
 
   /** does this node need its velocity stream to be drawn honestly at the current epoch? */
@@ -366,6 +415,22 @@ export class Streamer {
     return this.needVel(n) && !!n.velData;
   }
 
+  /**
+   * WebGPU orbit passes to run before this frame is drawn: every drawn moving node whose `orb`
+   * buffer is not yet at the current epoch (main.ts hands them to renderer.compute in one call)
+   */
+  orbitKernels(all = false): THREE.ComputeNode[] {
+    const out: THREE.ComputeNode[] = [];
+    if (!orbitConfig.compute || !this.track) return out;
+    if (all) this.trackVersion++;
+    for (const n of this.loaded) {
+      if (!n.orb || !n.points?.visible || !this.moving(n) || n.orbVersion === this.trackVersion) continue;
+      out.push(n.orb.kernel);
+      n.orbVersion = this.trackVersion;
+    }
+    return out;
+  }
+
   nodeForSlot(slot: number): TileNode | null {
     return this.slots[slot] ?? null;
   }
@@ -381,8 +446,9 @@ export class Streamer {
   private inFrustum(n: TileNode, v: StreamView): boolean {
     const c = n.meta.center;
     this.sphere.center.set(c[0] - v.camPos[0], c[1] - v.camPos[1], c[2] - v.camPos[2]);
-    // points may have moved out of their cube: grow the sphere by the node's fastest point
-    const drift = this.needVel(n) ? (n.meta.vmax ?? 0) * Math.abs(this.epoch) * PC_PER_KMS_MYR : 0;
+    // points may have moved out of their cube: grow the sphere by how far its points can have gone
+    const r = Math.hypot(c[0], c[1], c[2]) + n.meta.half * SQRT3;
+    const drift = this.needVel(n) ? driftBound(r, n.meta.vmax ?? 0, this.epoch, this.track?.dpsi ?? 0) : 0;
     this.sphere.radius = n.meta.half * SQRT3 + drift;
     return v.frustum.intersectsSphere(this.sphere);
   }
@@ -613,7 +679,16 @@ export class Streamer {
     n.vel = p;
     p.then((v) => {
       if (n.vel !== p || !n.points) return; // unloaded meanwhile
-      (n.points.geometry as THREE.InstancedBufferGeometry).setAttribute('vel', new THREE.InstancedBufferAttribute(v, 4));
+      const g = n.points.geometry as THREE.InstancedBufferGeometry;
+      if (orbitConfig.compute) {
+        const va = new THREE.StorageInstancedBufferAttribute(v, 4);
+        g.setAttribute('vel', va);
+        n.orb = makeOrbitKernel(g.getAttribute('inst') as THREE.StorageInstancedBufferAttribute, va, n.meta.count, n.meta.center, L.uniforms.sunVel);
+        n.orbVersion = -1;
+        g.setAttribute('orb', n.orb.attr);
+      } else {
+        g.setAttribute('vel', new THREE.InstancedBufferAttribute(v, 4));
+      }
       n.velData = v;
       this.onLoaded();
     }).catch((e) => {
@@ -660,7 +735,7 @@ export class Streamer {
       })
       .then((buf) => {
         const data = parseRenderRecords(buf, n.meta.count);
-        const g = makeNodeGeometry(data.positions, data.rgbl, data.count, n.meta.half * SQRT3);
+        const g = makeNodeGeometry(data.positions, data.rgbl, data.count, n.meta.half * SQRT3, orbitConfig.compute && !!L.meta?.velocity);
         const slot = this.freeSlots.pop() ?? this.slots.length;
         if (slot >= 1 << 22) throw new Error('pick slot space exhausted');
         this.slots[slot] = n;
@@ -722,6 +797,7 @@ export class Streamer {
     }
     n.slot = 0;
     n.points = n.pick = null;
+    n.orb = null;
     n.data = null;
     n.ext = null;
     n.extBuf = null;

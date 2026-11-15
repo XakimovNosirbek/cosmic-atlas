@@ -27,6 +27,7 @@ import {
   vec3, vec4, viewportSize,
 } from 'three/tsl';
 import { maskFactor } from './galaxyMask';
+import { orbitConfig, orbitDisplacement } from '../orbits/gpu';
 import { RV_FADE_K, RV_FADE_MIN, RV_SIGMA_KMS } from '../solar/epoch';
 import { BASE_PX, E4, GAL_MAX_PX, K_GAUSS, KNEE, REF_PX_PER_RAD, STAR_MAX_PX, type PointKind } from './brightness';
 
@@ -121,12 +122,21 @@ export const kneeNode = (I: N): N => float(KNEE).mul(float(1.0).sub(exp(I.div(-K
 /** per-object uniforms read from Object3D.userData at draw time */
 export const objectAlpha = () => uniform(1).onObjectUpdate(({ object }: any) => object?.userData?.alpha ?? 1);
 const objectSlot = () => uniform(0).onObjectUpdate(({ object }: any) => object?.userData?.slot ?? 0);
+/** the octree node's centre (pc), for moving points: their orbit starts from centre + inst */
+const objectCenter = () => {
+  const c = new THREE.Vector3();
+  return uniform(c).onObjectUpdate(({ object }: any) => {
+    const m = object?.userData?.node?.meta?.center;
+    return m ? c.set(m[0], m[1], m[2]) : c.set(0, 0, 0);
+  });
+};
 
 /**
- * `moving`: the variant for the star epoch slider. Each point is drawn at
- * inst + (vel.xyz − sunVel)·dtPc (pc, float32 relative to the node centre; the node centre − camera
- * stays float64 on the CPU, so relative-to-eye precision is unchanged), and needs the per-instance
- * `vel` attribute (vx, vy, vz km/s, q; tiles `.vel.bin`). Points whose radial velocity is unknown
+ * `moving`: the variant for the star epoch slider. Each point follows its Galactic orbit
+ * (orbits/gpu.ts): it is drawn at inst + D, D = its displacement relative to the Sun after the epoch
+ * (pc, float32 relative to the node centre; the node centre − camera stays float64 on the CPU, so
+ * relative-to-eye precision is unchanged). It needs the per-instance `vel` attribute (vx, vy, vz
+ * km/s, q; tiles `.vel.bin`); velocities are relative to the Sun after subtracting sunVel. Points whose radial velocity is unknown
  * (q < 0.5) fade with their unknown line-of-sight shift, see epoch.ts rvFade (CPU twin).
  * Pass the static set's `uniforms` so both variants follow the same exposure and view state.
  */
@@ -140,7 +150,9 @@ export function createLayerMaterials(kind: PointKind, layerCode: number, shared?
   const inst = attribute('inst', 'vec3');
   const rgbl = attribute('rgbl', 'vec4');
   const vel: N = moving ? attribute('vel', 'vec4') : null;
-  const pos: N = moving ? inst.add(vel.xyz.sub(U.sunVel).mul(U.dtPc)) : inst;
+  // WebGPU: the displacement was written by the node's compute pass (orbits/gpu.ts); WebGL2: integrate here
+  const disp: N = !moving ? null : orbitConfig.compute ? attribute('orb', 'vec4').xyz : orbitDisplacement(objectCenter().add(inst), vel.xyz.sub(U.sunVel));
+  const pos: N = moving ? inst.add(disp) : inst;
   const mv = modelViewMatrix.mul(vec4(pos, 1.0));
   const r = max(length(mv.xyz), 1e-7);
   const code = rgbl.w.mul(255.0);
@@ -305,14 +317,14 @@ export function createBlobMaterial(u: PointUniforms): THREE.PointsNodeMaterial {
 /** unit quad shared by all point meshes (positions in [-0.5, 0.5], uv in [0, 1]) */
 export const QUAD = new THREE.PlaneGeometry(1, 1);
 
-/** Instanced geometry for one octree node. */
-export function makeNodeGeometry(positions: Float32Array, rgbl: Uint8Array, count: number, radius: number): THREE.InstancedBufferGeometry {
+/** Instanced geometry for one octree node; `storage`: `inst` can also be read by a compute pass (orbits) */
+export function makeNodeGeometry(positions: Float32Array, rgbl: Uint8Array, count: number, radius: number, storage = false): THREE.InstancedBufferGeometry {
   const g = new THREE.InstancedBufferGeometry();
   // own copies of the 4-vertex quad, so disposing one node never frees another node's buffers
   g.setIndex(QUAD.index!.clone());
   g.setAttribute('position', QUAD.getAttribute('position').clone());
   g.setAttribute('uv', QUAD.getAttribute('uv').clone());
-  g.setAttribute('inst', new THREE.InstancedBufferAttribute(positions, 3));
+  g.setAttribute('inst', storage ? new THREE.StorageInstancedBufferAttribute(positions, 3) : new THREE.InstancedBufferAttribute(positions, 3));
   g.setAttribute('rgbl', new THREE.InstancedBufferAttribute(rgbl, 4, true));
   g.instanceCount = count;
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), radius);
