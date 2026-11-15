@@ -28,6 +28,10 @@
             role="combobox" aria-expanded="false" aria-controls="suggest" aria-autocomplete="list" />
           <ul id="suggest" class="suggest" role="listbox" aria-label="Suggestions" data-i18n-attr="aria-label:search.suggestions" hidden></ul>
         </div>
+        <button id="tours-btn" class="tours-btn" type="button" data-i18n-attr="title:tours.menuHint">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="6" r="2.2" /><path d="M8 17c4-1 2-6 5-8s4-1 4-1" /></svg>
+          <span class="tours-label" data-i18n="tours.button">Tours</span>
+        </button>
         <div id="lang" class="lang" role="group" aria-label="Language"></div>
       </div>
       <p id="search-status" class="status" role="status" aria-live="polite"></p>
@@ -93,7 +97,6 @@
     </aside>
 
     <div id="stats" class="stats" aria-hidden="true" hidden></div>
-    <p id="caption" class="caption" role="status" aria-live="polite" hidden></p>
 
     <footer class="instrument">
       <div class="scalebar" aria-label="Scale" data-i18n-attr="aria-label:scale.label">
@@ -116,10 +119,6 @@
         <button id="showme" class="btn" type="button" data-i18n-attr="title:showme.title;aria-label:showme.title" title="Fly from the cosmic web down to where you are">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" /></svg>
           <span class="tour-label" data-i18n="showme.label">Show me</span>
-        </button>
-        <button id="tour" class="btn" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 4 12 8-12 8z" /></svg>
-          <span class="tour-label" data-i18n="tour.scale.label">Scale tour</span>
         </button>
         <button id="time-btn" class="icon-btn" type="button" aria-pressed="false" hidden aria-label="Time: Solar System clock and moving stars" title="Time: Solar System clock and moving stars" data-i18n-attr="aria-label:action.time;title:action.time">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
@@ -186,6 +185,7 @@
         <dt data-i18n="help.k.click">Click</dt><dd data-i18n="help.v.click">Details of the brightest point under the cursor</dd>
         <dt data-i18n="help.k.dbl">Double-click</dt><dd data-i18n="help.v.dbl">Fly to that point</dd>
         <dt data-i18n="help.k.search">/</dt><dd data-i18n="help.v.search">Search</dd>
+        <dt data-i18n="help.k.tour">← → Space Esc</dt><dd data-i18n="help.v.tour">During a tour: previous or next stop, pause, close</dd>
       </dl>
       <h2 data-i18n="help.data">About the data</h2>
       <p id="credits" class="fine"></p>

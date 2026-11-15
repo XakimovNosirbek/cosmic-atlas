@@ -36,7 +36,12 @@ import { formatHash, parseHash, type SelRef } from './state/hash';
 import { factRows, planetRows } from './objects/facts';
 import { PC_PER_KMS_MYR, VEL_Q, closestApproach, findExtId, nodePath, parseRenderRecords, readExtRecord } from './tiles/format';
 import { NodeState, PointLayer, Streamer, type TileNode } from './tiles/streamer';
-import { SCALE_TOUR, resolveBeat, resolveTarget, type Beat, type Tour, type TourContext } from './tour/tours';
+import { resolveDist, resolveTarget, tourDurationMs, type Tour, type TourContext } from './tour/tours';
+import { TourRunner, type TourHost } from './tour/runner';
+import { TourPlayer } from './tour/player';
+import { ToursMenu, type MenuItem } from './tour/menu';
+import { bhVars } from './tour/bhfacts';
+import { MIN_DIST } from './nav/controller';
 import { ScaleRail } from './ui/rail';
 import { LAYER_GROUPS, layerGroup } from './ui/layerGroups';
 import { parseSkyCoord, type SkyCoord } from './search/coords';
@@ -129,7 +134,9 @@ export class App {
   selection: Selection | null = null;
   private hashTimer = 0;
   private lastUi = 0;
-  private tourAbort: ((restoreView: boolean) => void) | null = null;
+  /** tours (tour/runner.ts): the runner, its caption player and the top-bar menu */
+  tours!: TourRunner;
+  private toursMenu!: ToursMenu;
   dirty = true;
   private skyAmount = 0;
   private mwFade = 0;
@@ -142,8 +149,6 @@ export class App {
   /** re-renders the open info card (language change) */
   private infoRefresh: (() => void) | null = null;
   private infoToken = 0;
-  /** the tour beat on screen, for re-captioning on a language change */
-  private tourBeat: Beat | null = null;
   private refreshOutputs: () => void = () => {};
   // --- Solar System hook
   solar = new SolarSystem();
@@ -263,7 +268,7 @@ export class App {
 
     this.wireUi();
     this.nav.onChange = () => (this.dirty = true);
-    this.nav.onUserInput = () => this.stopTour(false);
+    this.nav.onUserInput = () => this.tours.userInput();
     this.nav.onClick = (x, y) => void this.pick(x, y, false);
     this.nav.onDoubleClick = (x, y) => void this.pick(x, y, true);
     this.streamer.onLoaded = () => (this.dirty = true);
@@ -316,9 +321,8 @@ export class App {
     this.timebar?.relabel();
     this.statesPanel?.relabel();
     if (!$('info').hidden) this.infoRefresh?.();
-    if (this.tourAbort && this.tourBeat) this.showCaption(this.tourBeat);
-    const tb = $('tour').querySelector('span')!;
-    tb.textContent = this.tourAbort ? t('tour.stop') : t(SCALE_TOUR.label);
+    this.tours?.relabel();
+    if (this.toursMenu?.isOpen) void this.toursMenu.render();
     $('search-status').textContent = '';
     this.dirty = true;
   }
@@ -884,6 +888,15 @@ export class App {
       u.slabZ.value = -D; // the focus sits at view-space z = −D
       u.slabHalf.value = slabHalf;
     }
+    const camFromSun = Math.hypot(cam[0], cam[1], cam[2]);
+    const skyFade = 1 - smoothstep(1500, 2500, camFromSun);
+    // --- Black hole hook: far from the Sun the Gaia all-sky image fades out, and a lens would bend
+    // nothing but the smooth Milky Way model glow. While a hole lenses, the image (the sky as seen
+    // from Earth) stays on as the background at infinity, and the model glow that it already
+    // contains (the Galaxy seen from inside) steps aside; the HUD says so.
+    const lensSky = this.bh?.lensActive && this.sky.visible && this.sky.loaded ? 1 - skyFade : 0;
+    this.mw.extraFade = 1 - lensSky;
+    if (this.bh) this.bh.earthSky = !!this.bh.lensActive && this.sky.visible && this.sky.loaded && this.sky.opacity > 0;
     this.mwFade = this.mw.update(cam, pxPerRad, this.dpr);
     this.gw.update(cam, D); // --- GW hook
     this.cosmo.update(cam, D, this.dpr); // --- Cosmography hook
@@ -894,9 +907,7 @@ export class App {
       // resolved galaxies follow the nearby-galaxy layers' switches
       enabled: this.layers.some((L) => L.kind === 'galaxy' && L.active && L.cfg.id !== 'galaxies-desi' && !L.cfg.dev),
     });
-    const camFromSun = Math.hypot(cam[0], cam[1], cam[2]);
-    const skyFade = 1 - smoothstep(1500, 2500, camFromSun);
-    this.skyAmount = this.sky.visible && this.sky.loaded ? this.sky.opacity * skyFade : 0;
+    this.skyAmount = this.sky.visible && this.sky.loaded ? this.sky.opacity * (skyFade + lensSky) : 0;
     const cmb = this.msg.frame(cam, this.camera, skyFade); // --- Messengers hook: markers, CMB shell
 
     // --- Black hole hook: environment cube for rays bent out of the frame, then the lensed pipeline
@@ -1026,7 +1037,7 @@ export class App {
   /** screen rectangles covered by UI (labels avoid them) */
   private occluders(): DOMRect[] {
     const out: DOMRect[] = [];
-    for (const sel of ['.top .search', '#layers', '#info', '#stats', '.instrument', '#caption', '#timectl']) {
+    for (const sel of ['.top .search', '#layers', '#info', '#stats', '.instrument', '#tour-player', '#timectl']) {
       const el = document.querySelector<HTMLElement>(sel);
       if (!el || el.hidden) continue;
       const r = el.getBoundingClientRect();
@@ -1721,8 +1732,8 @@ export class App {
     $<HTMLInputElement>('stats-on').addEventListener('change', (e) => ($('stats').hidden = !(e.target as HTMLInputElement).checked));
 
     $('info-close').addEventListener('click', () => this.closeInfo());
-    $('tour').addEventListener('click', () => (this.tourAbort ? this.stopTour(true) : void this.runTour(SCALE_TOUR)));
     $('showme').addEventListener('click', () => void this.showMe());
+    this.initTours();
     $('home').addEventListener('click', () => void this.nav.flyTo({ focus: [0, 0, 0], dist: 6 }));
     $('copy-link').addEventListener('click', async () => {
       this.writeHash();
@@ -1874,7 +1885,7 @@ export class App {
     for (const l of v.show ?? []) if (this.layerVisibility()[l] === false) this.setLayerVisible(l, true);
     const ctx = this.tourContext();
     const focus = resolveTarget(v.target, ctx);
-    const dist = typeof v.dist === 'number' ? v.dist : v.dist.galaxyEdge * ctx.galaxyEdgePc();
+    const dist = resolveDist(v.dist, ctx) ?? 1;
     const fly: Partial<View> = { focus, dist, pitch: (v.pitchDeg * Math.PI) / 180, ...(v.yawDeg !== undefined ? { yaw: (v.yawDeg * Math.PI) / 180 } : {}) };
     // a view of one catalogue object (Andromeda, M87 …) shows that object's card: facts, links, deep link
     const entry = 'catalog' in v.target ? this.findCatalog(v.target.catalog) : null;
@@ -1985,11 +1996,7 @@ export class App {
   // ------------------------------------------------------------------ tours (data in tour/tours.ts)
 
   private stopTour(restoreView: boolean) {
-    if (this.tourAbort) {
-      const f = this.tourAbort;
-      this.tourAbort = null;
-      f(restoreView);
-    }
+    this.tours?.stop(restoreView);
   }
 
   private tourContext(): TourContext {
@@ -2011,7 +2018,27 @@ export class App {
         const v = flyTargetForLatLon(this.here.lat, this.here.lon, this.solar.clock.now());
         return { focus: v.focus, yaw: v.yaw, pitch: v.pitch };
       },
+      // --- Black hole hook: distances in r_s and the numbers black hole captions quote
+      holeRsPc: (name) => this.bh?.find(name)?.rsPc ?? null,
+      vars: (beat) => {
+        const out: Record<string, string> = {};
+        for (const [name, prefix] of beat.facts ?? []) {
+          const h = this.bh?.find(name);
+          if (h) Object.assign(out, bhVars(prefix, h.massMsun));
+        }
+        return out;
+      },
+      // --- Solar System hook: how the Solar System layer frames an entry (planet, probe, feature, comet)
+      solarView: (name) => {
+        const e = this.solarEntry(name);
+        return e ? this.solar.viewFor(e) : null;
+      },
     };
+  }
+
+  private solarEntry(name: string): SolarEntry | null {
+    const all = [...this.solar.entries, ...this.solar.featureEntries];
+    return all.find((x) => x.name === name || x.alt.includes(name)) ?? null;
   }
 
   /** viewer location for "Show me": rounded to 0.01° (~1 km), kept in memory only, never in the URL */
@@ -2045,70 +2072,100 @@ export class App {
     await this.runTour(tour);
   }
 
+  /** play a tour (tour/tours.ts, tour/library.ts) with the caption player */
   private async runTour(tour: Tour) {
-    const btn = $('tour');
-    const cap = $('caption');
-    // snapshot the scene; restored when the tour ends
-    const snap = {
-      view: { ...this.nav.view, focus: [...this.nav.view.focus] as Vec3 },
-      layers: this.layerVisibility(),
-      sel: this.selection,
-      epoch: this.epoch.myr,
-      slab: this.slabMpc,
+    await this.tours.start(tour);
+  }
+
+  /** a tour of the menu by id (also the debug API) */
+  async startTour(id: string) {
+    const { TOURS } = await import('./tour/library');
+    const tour = TOURS.find((x) => x.id === id);
+    if (tour) await this.runTour(tour);
+    return !!tour;
+  }
+
+  /** the runner, its caption player and the top-bar menu (the tour library is fetched on the first open) */
+  private initTours() {
+    const app = this;
+    const host: TourHost = {
+      nav: this.nav,
+      context: () => this.tourContext(),
+      layerVisibility: () => this.layerVisibility(),
+      layerDefaults: () => this.layerDefaults(),
+      setLayerVisible: (id, on) => this.setLayerVisible(id, on),
+      layerAvailable: (id) => id in this.layerVisibility()
+        && !((id === 'cf4-flow' || id === 'cf4-density') && (this.cosmo.status === 'missing' || this.cosmo.status === 'error')),
+      epoch: () => this.epoch.myr,
+      setEpoch: (myr) => this.epoch.set(myr),
+      tweenEpoch: (myr, ms) => this.tweenEpoch(myr, ms),
+      cancelEpoch: () => window.cancelAnimationFrame(this.epochTween),
+      slab: () => this.slabMpc,
+      setSlab: (mpc) => this.setSlab(mpc),
+      getSelection: () => this.selection,
+      setSelection: (s) => {
+        this.selection = s as Selection | null;
+        this.dirty = true;
+      },
+      restoreSelection: (ref) => void this.restoreSelection(ref),
+      select: (names) => {
+        const e = this.findCatalog(names);
+        if (!e?.xyz) return;
+        // a phone has no room for the card next to the caption: the reticle marks the object
+        if (window.innerWidth < 640) this.selection = { xyz: e.xyz, title: displayName(e.name), fly: this.viewFor(e), ref: { type: 'cat', name: e.name } };
+        else this.showCatalogEntry(e);
+        this.dirty = true;
+      },
+      closeInfo: () => this.closeInfo(),
+      follow: (id) => this.solar.attach(id as 'earth' | null),
+      solarArrive: (name) => {
+        const e = this.solarEntry(name);
+        if (!e) return;
+        const id = this.solar.bodyIdOf(e);
+        if (id) {
+          this.nav.view.focus = this.solar.focusAfterFlight(e);
+          this.solar.attach(id);
+        } else this.solar.attachEntry(e);
+      },
+      clockSnapshot: () => {
+        const c = this.solar.clock;
+        return { live: c.live, now: c.now(), speed: c.speed, paused: c.paused };
+      },
+      clockRestore: (s) => {
+        const c = this.solar.clock;
+        const v = s as { live: boolean; now: number; speed: number; paused: boolean };
+        if (v.live) c.resetToNow();
+        else c.set(v.now);
+        c.setSpeed(v.speed);
+        c.setPaused(v.paused);
+      },
+      setClock: (iso) => this.solar.clock.set(Date.parse(iso)),
+      blackHoles: async () => {
+        await this.loadBlackHoles();
+        return this.bh;
+      },
+      openDoc: (slug) => void this.docs.open(slug),
+      foldPanels: () => {
+        // on a phone the expanded layers panel would cover the caption and most of the view
+        if (window.innerWidth < 640) $('layers-toggle').setAttribute('aria-expanded', 'false');
+      },
+      ended: () => {
+        app.nav.minDist = MIN_DIST; // the black hole module lowers it again near a hole
+        app.scheduleHash();
+      },
+      dirty: () => (this.dirty = true),
     };
-    let stopped = false;
-    const restore = (restoreView: boolean) => {
-      stopped = true;
-      this.nav.cancelFlight();
-      cap.hidden = true;
-      btn.setAttribute('aria-pressed', 'false');
-      btn.querySelector('span')!.textContent = t(SCALE_TOUR.label);
-      this.tourBeat = null;
-      window.cancelAnimationFrame(this.epochTween);
-      if (tour.keepScene) return; // a story ends in its last saved view
-      for (const [id, on] of Object.entries(snap.layers)) if (this.layerVisibility()[id] !== on) this.setLayerVisible(id, on);
-      if (snap.sel) this.selection = snap.sel;
-      if (this.epoch.myr !== snap.epoch) this.epoch.set(snap.epoch);
-      if (this.slabMpc !== snap.slab) this.setSlab(snap.slab);
-      if (restoreView) void this.nav.flyTo(snap.view);
+    this.tours = new TourRunner(host, new TourPlayer());
+    this.toursMenu = new ToursMenu($<HTMLButtonElement>('tours-btn'));
+    this.toursMenu.items = async () => {
+      const { TOURS } = await import('./tour/library');
+      const ctx = this.tourContext();
+      return TOURS.map((x): MenuItem => ({
+        id: x.id, title: t(x.label), summary: x.summary ? t(x.summary) : '',
+        minutes: Math.max(1, Math.round(tourDurationMs(x, ctx) / 60000)), stops: x.beats.length,
+      }));
     };
-    this.tourAbort = restore;
-    btn.setAttribute('aria-pressed', 'true');
-    btn.querySelector('span')!.textContent = t('tour.stop');
-    // on a phone the expanded layers panel would cover the caption and most of the view
-    if (window.innerWidth < 640) $('layers-toggle').setAttribute('aria-expanded', 'false');
-    this.closeInfo();
-    const ctx = this.tourContext();
-    for (const beat of tour.beats) {
-      if (stopped) return;
-      const r = resolveBeat(beat, ctx); // targets resolved now, at playback
-      for (const id of beat.show ?? []) this.setLayerVisible(id, true);
-      // --- saved views: the state's layers (others back to their defaults), slab and star epoch
-      if (beat.layers) {
-        const want = { ...this.layerDefaults(), ...beat.layers };
-        for (const [id, on] of Object.entries(this.layerVisibility())) if (want[id] !== undefined && want[id] !== on) this.setLayerVisible(id, want[id]);
-      }
-      if (beat.slab !== undefined && beat.slab !== this.slabMpc) this.setSlab(beat.slab);
-      if (beat.epochMyr !== undefined) this.tweenEpoch(beat.epochMyr, 1800);
-      if (beat.caption) this.closeInfo();
-      this.showCaption(beat);
-      this.solar.attach(null);
-      const ok = await this.nav.flyTo({ focus: r.focus, dist: r.dist, pitch: r.pitch, ...(r.yaw !== undefined ? { yaw: r.yaw } : {}) }, { durationScale: 1.15 });
-      if (!ok || stopped) return;
-      if (beat.follow) this.solar.attach(beat.follow as 'earth'); // moving body: keep the focus on it
-      if (beat.sel) void this.restoreSelection(beat.sel);
-      await new Promise((res) => setTimeout(res, this.nav.reducedMotion ? 4000 : beat.dwellMs));
-    }
-    if (tour.stayAtEnd) {
-      // keep the last caption up; the scene (layers) is restored but the camera stays here
-      const last = tour.beats[tour.beats.length - 1];
-      this.stopTour(false);
-      if (last) this.showCaption(last);
-      $('caption').hidden = false;
-      this.scheduleHash(); // at=Earth: the viewer's own coordinates never go into the URL
-      return;
-    }
-    this.stopTour(true);
+    this.toursMenu.onPick = (id) => void this.startTour(id);
   }
 
   private epochTween = 0;
@@ -2144,17 +2201,6 @@ export class App {
     this.playStory(list);
   }
 
-  /** caption of a tour beat in the current language */
-  private showCaption(beat: Beat) {
-    this.tourBeat = beat;
-    const r = resolveBeat(beat, this.tourContext());
-    const cap = $('caption');
-    cap.innerHTML = '<b></b><span></span>';
-    cap.querySelector('b')!.textContent = r.title;
-    cap.querySelector('span')!.textContent = r.text;
-    cap.hidden = false;
-  }
-
   // ------------------------------------------------------------------ deep links
 
   /** throttled, not debounced: while the focus follows a moving planet the view changes every
@@ -2168,7 +2214,7 @@ export class App {
   }
 
   private writeHash() {
-    if (this.tourAbort) return; // a tour ends with its own scheduleHash()
+    if (this.tours?.running) return; // a tour ends with its own scheduleHash()
     if (this.nav.flying) return void this.scheduleHash(); // try again once the flight lands
     const h = this.hashNow();
     if (location.hash !== h) history.replaceState(null, '', h);

@@ -62,6 +62,8 @@ export class BlackHoleFeature {
   x = Infinity;
   quality: Quality = 'medium';
   flammOn = true;
+  /** set by the app each frame: the lens bends the Gaia all-sky image, i.e. the sky as seen from Earth */
+  earthSky = false;
   /** lensing on both backends (WebGL 2: the TSL shader compiled to GLSL, Low by default); ?bhlens=off disables it */
   lensSupported = true;
   backend: 'WebGPU' | 'WebGL2' = 'WebGPU';
@@ -289,7 +291,8 @@ export class BlackHoleFeature {
     if (x < HUD_MAX_X) {
       const note = [disk ? `${tr('bh.disk.note', { rout: DISK.rOut, tpeak: DISK.tPeak, name: h.name })} ${tr(h.disk.source)}` : '',
         this.backend === 'WebGL2' && this.lensSupported ? tr('bh.hud.webgl2') : ''].filter(Boolean).join(' ');
-      this.hud.update({ hole: h, x, diskOn: disk, flammOn: this.flammOn, quality: this.quality, atFloor: this.atFloor, lensSupported: this.lensSupported }, f.dt, note);
+      this.hud.update({ hole: h, x, diskOn: disk, flammOn: this.flammOn, quality: this.quality, atFloor: this.atFloor, lensSupported: this.lensSupported,
+        earthSky: this.lensActive && this.earthSky }, f.dt, note);
       // Flamm grid: fades in inside ~200 r_s
       const op = this.flammOn ? 1 - smoothstep(80, 250, x) : 0;
       const tanH = t;

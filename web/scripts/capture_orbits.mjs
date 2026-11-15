@@ -123,7 +123,7 @@ const seen = new Set();
 const trace = [];
 for (;;) {
   await p2.waitForTimeout(700);
-  const st = await p2.evaluate(() => ({ epoch: window.__atlas.epoch(), caption: document.getElementById('caption')?.hidden ? null : document.querySelector('#caption b')?.textContent }));
+  const st = await p2.evaluate(() => ({ epoch: window.__atlas.epoch(), caption: document.getElementById('tour-player')?.hidden ?? true ? null : document.querySelector('#tour-player .tp-title')?.textContent }));
   if (st.caption && !seen.has(st.caption)) {
     seen.add(st.caption);
     trace.push(`${((Date.now() - t0) / 1000).toFixed(1)} s "${st.caption}"`);

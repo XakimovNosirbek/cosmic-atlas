@@ -25,6 +25,18 @@ export function installDebugApi(app: App) {
       selection: app.selection ? { title: app.selection.title, ref: app.selection.ref, lo: app.selection.lo, hi: app.selection.hi } : null,
       layers: app.layers.map((L) => ({ id: L.cfg.id, status: L.status, active: L.active, count: L.meta?.count ?? 0 })) }),
     setView: (v: Partial<View>) => app.nav.setView(v),
+    // --- Tours hook (captures / tests): start a menu tour, jump to a stop, pause, read the state
+    tours: {
+      list: async () => (await import('../tour/library')).TOURS.map((x) => ({ id: x.id, stops: x.beats.map((b) => b.id) })),
+      start: (id: string) => app.startTour(id),
+      go: (i: number) => app.tours.go(i),
+      pause: (on: boolean) => {
+        if (app.tours.paused !== on) app.tours.toggle();
+      },
+      stop: () => app.tours.stop(false),
+      state: () => ({ tour: app.tours.tour?.id ?? null, index: app.tours.index, stop: app.tours.tour?.beats[app.tours.index]?.id ?? null,
+        paused: app.tours.paused, ended: app.tours.ended, flying: app.nav.flying }),
+    },
     flyTo: (v: Partial<View>) => app.nav.flyTo(v),
     pickAt: (x: number, y: number) => app.pick(x, y, false),
     setContinuous: (on: boolean) => (app.continuous = on),

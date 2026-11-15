@@ -92,6 +92,14 @@ export function onLangChange(f: (l: Lang) => void): () => void {
   return () => listeners.delete(f);
 }
 
+/**
+ * Strings of a lazily loaded module (the narrative tours: tour/narrative/*.json) join the
+ * dictionaries when that module loads, so they are not part of the first download.
+ */
+export function extendDicts(add: Record<Lang, Record<string, string>>) {
+  for (const l of LANGS) Object.assign(DICTS[l], add[l]);
+}
+
 export function hasKey(key: string, lang: Lang = current): boolean {
   return key in DICTS[lang];
 }

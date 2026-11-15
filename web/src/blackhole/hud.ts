@@ -36,6 +36,8 @@ export interface HudState {
   quality: Quality;
   atFloor: boolean;
   lensSupported: boolean;
+  /** the lensed background is the Gaia all-sky image (the sky as seen from Earth) */
+  earthSky?: boolean;
 }
 
 export class BlackHoleHud {
@@ -68,6 +70,7 @@ export class BlackHoleHud {
         <figure>${clockFace('far')}<figcaption><b class="t-far"></b><span class="c-far"></span></figcaption></figure>
       </div>
       <p class="fine bh-ratio"></p>
+      <p class="fine bh-sky" hidden></p>
       <p class="bh-floor" role="status" hidden></p>
       <div class="bh-ctl">
         <label class="check"><input type="checkbox" class="cb-disk" /> <span class="l-disk"></span></label>
@@ -145,6 +148,12 @@ export class BlackHoleHud {
     this.q('.t-you').textContent = clock(this.tYou);
     this.q('.t-far').textContent = clock(this.tFar);
     this.q('.bh-ratio').textContent = tr('bh.hud.clock.ratio', { k: (1 / dil).toPrecision(dil > 0.999 ? 7 : 4) });
+    const sky = this.q<HTMLElement>('.bh-sky');
+    if (sky.hidden === !!s.earthSky) sky.hidden = !s.earthSky;
+    if (s.earthSky) {
+      const txt = tr('bh.hud.earthSky');
+      if (sky.textContent !== txt) sky.textContent = txt;
+    }
     const fl = this.q<HTMLElement>('.bh-floor');
     fl.hidden = !s.atFloor;
     if (s.atFloor) fl.textContent = tr('bh.hud.floor');

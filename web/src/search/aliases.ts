@@ -48,7 +48,8 @@ export interface NamedView {
 function fromBeat(id: string, extra: Partial<NamedView> = {}): NamedView {
   const b = SCALE_TOUR.beats.find((x) => x.id === id);
   if (!b) throw new Error(`no tour beat ${id}`);
-  return { target: b.target, dist: b.dist, pitchDeg: b.pitchDeg, yawDeg: b.yawDeg, show: b.show, ...extra };
+  if (typeof b.dist === 'object' && 'rs' in b.dist) throw new Error(`tour beat ${id}: a named view cannot use r_s`);
+  return { target: b.target, dist: b.dist,pitchDeg: b.pitchDeg, yawDeg: b.yawDeg, show: b.show, ...extra };
 }
 
 // Galactic (l, b, d) → heliocentric Galactic xyz, rounded to pc (computed once, see comments)

@@ -91,6 +91,8 @@ export class MilkyWayModel {
   readonly center: Vec3 = [R0_PC, 0, 0];
   visible = true;
   opacity = 1;
+  /** extra factor set per frame by the app (the black hole lens replaces the glow by the Gaia sky far from the Sun) */
+  extraFade = 1;
 
   constructor() {
     const rnd = mulberry32(81782019);
@@ -218,7 +220,7 @@ export class MilkyWayModel {
   }
 
   update(camPos: Vec3, pxPerRad: number, dpr: number) {
-    const fade = MilkyWayModel.fadeFor(Math.hypot(camPos[0], camPos[1], camPos[2])) * this.opacity;
+    const fade = MilkyWayModel.fadeFor(Math.hypot(camPos[0], camPos[1], camPos[2])) * this.opacity * this.extraFade;
     this.uFade.value = fade;
     this.uPxPerRad.value = pxPerRad;
     this.uDpr.value = dpr;

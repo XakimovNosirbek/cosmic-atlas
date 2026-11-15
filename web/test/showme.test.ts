@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SHOW_ME_TOUR, needsHere } from '../src/tour/showme';
-import { resolveBeat, type TourContext } from '../src/tour/tours';
+import { resolveBeat, resolveDist, type TourContext } from '../src/tour/tours';
 import { flyTargetForLatLon } from '../src/solar';
 
 const base: TourContext = {
@@ -17,7 +17,7 @@ describe('Show me tour', () => {
     expect(ids[0]).toBe('web');
     expect(ids[ids.length - 1]).toBe('here');
     expect(SHOW_ME_TOUR.stayAtEnd).toBe(true);
-    const d = SHOW_ME_TOUR.beats.map((b) => (typeof b.dist === 'number' ? b.dist : b.dist.galaxyEdge * 2.5e9));
+    const d = SHOW_ME_TOUR.beats.map((b) => resolveDist(b.dist, base)!);
     for (let i = 1; i < d.length; i++) expect(d[i]).toBeLessThan(d[i - 1]); // always zooming in
   });
 

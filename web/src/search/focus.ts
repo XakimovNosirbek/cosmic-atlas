@@ -8,7 +8,7 @@
 
 import type { CatalogEntry } from '../data/manifest';
 import { normName } from '../data/resolve';
-import { SCALE_TOUR } from '../tour/tours';
+import { SCALE_TOUR, type DistRef } from '../tour/tours';
 import { BODIES, NAMED_VIEWS, fold, matchAliases, type AliasTarget, type NamedView } from './aliases';
 
 export type FocusTarget = { type: 'catalog'; entry: CatalogEntry } | Exclude<AliasTarget, { type: 'catalog' }>;
@@ -47,7 +47,7 @@ export function resolveFocus(name: string, catalog: CatalogEntry[]): FocusTarget
 
 const beat = (id: string): NamedView => {
   const b = SCALE_TOUR.beats.find((x) => x.id === id)!;
-  return { target: b.target, dist: b.dist, pitchDeg: b.pitchDeg, yawDeg: b.yawDeg };
+  return { target: b.target, dist: b.dist as DistRef, pitchDeg: b.pitchDeg, yawDeg: b.yawDeg };
 };
 
 /** where to look when a link turns a layer on (`#layer=<id>`) */
