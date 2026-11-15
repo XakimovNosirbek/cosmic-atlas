@@ -39,6 +39,8 @@ export interface NamedView {
   yawDeg?: number;
   /** layers to switch on for this view */
   show?: string[];
+  /** layers to switch off for this view (they would bury what it is about); the panel shows the change */
+  hide?: string[];
   doc?: string;
   /** where the numbers come from */
   ref?: string;

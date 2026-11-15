@@ -70,6 +70,30 @@
       "credit": "Tully et al. 2023, redshift-independent distances"
     },
     {
+      "id": "galaxies-sdss",
+      "title": "SDSS galaxies and quasars",
+      "path": "tiles/galaxies-sdss",
+      "visible": true,
+      "colorMode": "galaxy",
+      "credit": "SDSS DR17, Abdurro'uf et al. 2022; objects already in DESI DR1 removed"
+    },
+    {
+      "id": "galaxies-6dfgs",
+      "title": "6dF Galaxy Survey",
+      "path": "tiles/galaxies-6dfgs",
+      "visible": true,
+      "colorMode": "galaxy",
+      "credit": "6dFGS DR3, Jones et al. 2009; objects already in DESI, SDSS or 2MRS removed"
+    },
+    {
+      "id": "galaxies-2dfgrs",
+      "title": "2dF Galaxy Redshift Survey",
+      "path": "tiles/galaxies-2dfgrs",
+      "visible": true,
+      "colorMode": "galaxy",
+      "credit": "2dFGRS, Colless et al. 2001; objects already in DESI, SDSS, 2MRS or 6dFGS removed"
+    },
+    {
       "id": "local-group",
       "title": "Local Group galaxies",
       "path": "tiles/local-group",

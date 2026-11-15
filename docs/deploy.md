@@ -66,7 +66,9 @@ gh workflow run pages.yml
 ```
 
 v3 (2026-11-15): 950 MB, Gaia 7.67 M of 39.6 M stars local, DESI 9.2 M of 15.1 M local, the rest
-from HF. Commit-pinned URLs never change, so an old site keeps working while a new one deploys.
+from HF.
+v4 (2026-11-15): adds `cosmography` (CF4++ density and flows, Laniakea basins, 2MRS groups, 6.8 MB;
+built by `scripts/build_cosmography.py` from `data/cache/cosmicflows` and `data/cache/groups2mrs`). Commit-pinned URLs never change, so an old site keeps working while a new one deploys.
 
 **What a visit costs.** Measured with headless Chrome against `python -m http.server`, using the
 full DESI tiles and the default 4 M point budget:

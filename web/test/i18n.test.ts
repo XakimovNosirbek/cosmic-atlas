@@ -42,6 +42,17 @@ describe('i18n dictionaries', () => {
     for (const L of m.layers) expect(DICTS.uz, L.id).toHaveProperty([`layer.${L.id}`]);
   });
 
+  it('has a translated credit for every point / model / sky layer that carries one, matching the English manifest text', () => {
+    const m = JSON.parse(readFileSync(resolve(__dirname, '../public/layers.json'), 'utf8')) as { layers: { id: string; type?: string; credit?: string }[] };
+    // the layers whose credit main.ts shows through layerCredit(); other modules write their own credit lines
+    const credited = m.layers.filter((L) => L.credit && [undefined, 'points', 'milky-way-model', 'sky'].includes(L.type));
+    expect(credited.length).toBeGreaterThan(8);
+    for (const L of credited) {
+      for (const l of LANGS) expect(DICTS[l], `${l} ${L.id}`).toHaveProperty([`credit.${L.id}`]);
+      expect(DICTS.en[`credit.${L.id}`], L.id).toBe(L.credit);
+    }
+  });
+
   it('writes Uzbek with oʻ / gʻ (U+02BB) and ʼ (U+02BC), never ASCII or curly apostrophes', () => {
     for (const [k, v] of Object.entries(DICTS.uz)) {
       expect(v, k).not.toMatch(/[og]['‘’`]/i);
