@@ -172,6 +172,8 @@
   "tours.menuHint": "Animated tours: black holes, the Milky Way, the life of a star, the universe, the Solar System",
   "tours.menu": "Animated tours",
   "tours.length": "≈ {min} min · {n, plural, one {# stop} other {# stops}}",
+  "tours.loadFailed": "The tours could not be loaded. The site was probably updated while this page was open.",
+  "tours.reload": "Reload the page",
   "tours.stop": "Stop {i} of {n}",
   "tours.stops": "Stops of the tour",
   "tours.prev": "Previous stop (←)",

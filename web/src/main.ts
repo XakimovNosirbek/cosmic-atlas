@@ -2439,6 +2439,18 @@ function catalogLinks(e: CatalogEntry): [string, string][] {
   return out;
 }
 
+// A tab left open across a deploy still runs the old bundle, whose lazy chunks (tours, black hole,
+// …) were replaced by new hashed files. Reload once to pick up the new build; the guard stops a
+// reload loop when a chunk is missing for some other reason.
+window.addEventListener('vite:preloadError', (e) => {
+  let last = 0;
+  try { last = Number(sessionStorage.getItem('ca.chunkReload')) || 0; } catch { /* storage blocked */ }
+  if (Date.now() - last < 60_000) return; // already tried: let the caller show its own error
+  try { sessionStorage.setItem('ca.chunkReload', String(Date.now())); } catch { return; } // no guard → no reload
+  e.preventDefault();
+  window.location.reload();
+});
+
 const app = new App();
 // the Solar System module registers live bodies here: __atlasBodies(provider)
 (window as unknown as { __atlasBodies: (p: BodyProvider) => void }).__atlasBodies = (p) => app.registerBodies(p);

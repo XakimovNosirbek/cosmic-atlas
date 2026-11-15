@@ -172,6 +172,8 @@
   "tours.menuHint": "Animatsion sayohatlar: qora tuynuklar, Somon yoʻli, yulduz hayoti, Olam, Quyosh sistemasi",
   "tours.menu": "Animatsion sayohatlar",
   "tours.length": "≈ {min} daqiqa · {n} ta bekat",
+  "tours.loadFailed": "Sayohatlarni yuklab boʻlmadi. Sahifa ochiq turganda sayt yangilangan boʻlsa kerak.",
+  "tours.reload": "Sahifani qayta yuklash",
   "tours.stop": "{i}-bekat, jami {n} ta",
   "tours.stops": "Sayohat bekatlari",
   "tours.prev": "Oldingi bekat (←)",

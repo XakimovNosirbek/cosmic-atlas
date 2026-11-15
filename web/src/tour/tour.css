@@ -97,3 +97,5 @@
 
 /* during a tour the time bar keeps its slider and readout; its long note would push the caption up over the view */
 body.has-tour .timectl .t-note { display: none; }
+.tm-error { display: grid; gap: 8px; padding: 6px 10px 4px; font-size: 13px; line-height: 1.4; color: var(--ink-dim); }
+.tm-reload { display: block; min-height: 40px; text-align: center; color: var(--brass-bright); border-color: var(--hairline-strong); }

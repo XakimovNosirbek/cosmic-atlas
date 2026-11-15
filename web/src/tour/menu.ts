@@ -64,7 +64,27 @@ export class ToursMenu {
   async render() {
     this.el.querySelector('h2')!.textContent = t('tours.menu');
     const list = this.el.querySelector('.tm-list')!;
-    const items = await this.items();
+    let items: MenuItem[];
+    try {
+      items = await this.items();
+    } catch (err) {
+      // a page left open across a deploy asks for a code chunk that no longer exists; say so
+      // instead of showing an empty list
+      console.warn('tours: could not load the tour list', err);
+      list.innerHTML = '';
+      const li = document.createElement('li');
+      li.className = 'tm-error';
+      const msg = document.createElement('span');
+      msg.textContent = t('tours.loadFailed');
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tm-item tm-reload';
+      b.textContent = t('tours.reload');
+      b.addEventListener('click', () => window.location.reload());
+      li.append(msg, b);
+      list.append(li);
+      return;
+    }
     list.innerHTML = '';
     for (const it of items) {
       const li = document.createElement('li');
