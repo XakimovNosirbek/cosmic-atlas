@@ -1663,8 +1663,15 @@ export class App {
     setStripH();
 
     const tog = $('layers-toggle');
-    tog.addEventListener('click', () => tog.setAttribute('aria-expanded', String(tog.getAttribute('aria-expanded') !== 'true')));
-    if (window.innerWidth < 640) tog.setAttribute('aria-expanded', 'false');
+    // closed until asked for (the scene first); the choice is remembered in this browser
+    tog.setAttribute('aria-expanded', String(prefGet('layersOpen') === '1'));
+    tog.addEventListener('click', () => {
+      const open = tog.getAttribute('aria-expanded') !== 'true';
+      tog.setAttribute('aria-expanded', String(open));
+      prefSet('layersOpen', open ? '1' : '0');
+    });
+    const timeBtn = $<HTMLButtonElement>('time-btn');
+    timeBtn.addEventListener('click', () => this.timebar.setOpen(!this.timebar.open));
 
     const exp = $<HTMLInputElement>('exposure');
     const expOut = $('exposure-out');
@@ -2282,6 +2289,22 @@ function smoothstep(a: number, b: number, x: number) {
 function skyCoordText(c: SkyCoord): string {
   const sg = (x: number) => `${x < 0 ? '−' : '+'}${fmtFixed(Math.abs(x), 4)}`;
   return c.frame === 'icrs' ? `RA ${fmtFixed(c.ra, 4)}°, Dec ${sg(c.dec)}°` : `l ${fmtFixed(c.l, 3)}°, b ${sg(c.b)}°`;
+}
+
+/** per-viewer UI preferences (panel open/closed); storage may be blocked, then nothing is remembered */
+function prefGet(k: string): string | null {
+  try {
+    return localStorage.getItem(`ca.${k}`);
+  } catch {
+    return null;
+  }
+}
+function prefSet(k: string, v: string) {
+  try {
+    localStorage.setItem(`ca.${k}`, v);
+  } catch {
+    /* private window or blocked storage */
+  }
 }
 
 /** a small icon button that copies `text` and says so in its tooltip */

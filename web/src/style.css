@@ -156,10 +156,8 @@ select.sky-bg { display: block; margin: 6px 0 0 20px; width: calc(100% - 20px); 
 .layer { padding: 6px 0; }
 .layer .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .layer:hover .meta, .layer:focus-within .meta { white-space: normal; }
-@media (hover: hover) and (pointer: fine) {
-  .layer input[type='range'] { display: none; }
-  .layer:hover input[type='range']:not([hidden]), .layer:focus-within input[type='range']:not([hidden]) { display: block; }
-}
+.layer input[type='range'] { display: none; }
+.layer:hover input[type='range']:not([hidden]), .layer:focus-within input[type='range']:not([hidden]) { display: block; }
 .layer-group { list-style: none; margin: 10px 0 2px; padding: 8px 0 0; border-top: 1px solid var(--hairline-strong);
   font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brass); }
 .layer-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
@@ -464,6 +462,8 @@ body.has-docs .caption { display: none; }
 .timectl .t-note { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--ink-dim); }
 .timectl.t-moved .t-note { color: var(--ink); }
 .timectl:not(.t-moved) .t-note { display: none; }
+/* the track shows its ends and "now" only; the inner ticks collide (longest in uz/ru), the readout says the exact time */
+.timectl .t-ticks span:nth-child(2), .timectl .t-ticks span:nth-child(4) { display: none; }
 
 /* ---------- small screens ---------- */
 @media (max-width: 900px) {
@@ -502,8 +502,6 @@ body.has-docs .caption { display: none; }
   .docs-body { font-size: 16.5px; }
   .timectl { right: 8px; left: 8px; bottom: calc(var(--instrument-h) + 8px + 60px); width: auto; padding-left: 10px; }
   body.has-info .timectl { display: none; }
-  /* narrow track: only −1 Myr, now and +1 Myr; the ±10 kyr ticks collide */
-  .timectl .t-ticks span:nth-child(2), .timectl .t-ticks span:nth-child(4) { display: none; }
   .timectl .t-solar { justify-content: space-between; }
   .timectl .t-date { min-width: 0; font-size: 12px; }
 }
@@ -522,4 +520,12 @@ body.has-docs .caption { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* phones: eight footer buttons do not fit beside the scale bar; they get their own row, spread out */
+@media (max-width: 480px) {
+  .instrument { grid-template-columns: 1fr; grid-template-areas: 'rail' 'bar' 'actions'; gap: 4px; }
+  .actions { justify-content: space-between; gap: 2px; }
+  .scalebar { display: flex; align-items: center; gap: 10px; }
+  .scalebar .bar-label { margin: 0; }
 }

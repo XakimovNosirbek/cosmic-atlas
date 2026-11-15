@@ -131,6 +131,35 @@ export class TimeBar {
     this.syncEpoch();
   }
 
+  /** the user opened the bar (footer clock button); remembered in this browser */
+  open = readOpen();
+
+  /** time makes sense at this view: the Solar System clock or movable stars */
+  get relevant() {
+    return this.solarOn || this.starsOn;
+  }
+
+  setOpen(on: boolean) {
+    this.open = on;
+    try {
+      localStorage.setItem('ca.timeOpen', on ? '1' : '0');
+    } catch {
+      /* storage blocked: the choice lasts for this page */
+    }
+    this.syncShown();
+  }
+
+  /** shown when it makes sense here and the user asked for it, or while the stars are moved off "now" */
+  private syncShown() {
+    const show = this.relevant && (this.open || this.epoch.active);
+    if (this.el.hidden === show) this.el.hidden = !show;
+    const btn = document.getElementById('time-btn');
+    if (btn) {
+      btn.hidden = !this.relevant;
+      btn.setAttribute('aria-pressed', String(show));
+    }
+  }
+
   /** which rows make sense at this view (Solar System near the Sun; stars when a layer can move) */
   setRows(solar: boolean, stars: boolean) {
     if (solar !== this.solarOn) this.solarRow.hidden = !(this.solarOn = solar);
@@ -140,8 +169,7 @@ export class TimeBar {
       this.starRow.hidden = !(this.starsOn = st);
       this.note.hidden = !st;
     }
-    const show = this.solarOn || this.starsOn;
-    if (this.el.hidden === show) this.el.hidden = !show;
+    this.syncShown();
     if (this.solarOn) this.tick();
   }
 
@@ -170,6 +198,8 @@ export class TimeBar {
     this.starNow.setAttribute('aria-pressed', String(m === 0));
     this.note.textContent = m === 0 ? t('time.starsHint') : t('time.starsNote');
     this.el.classList.toggle('t-moved', m !== 0);
+    if (m !== 0) this.open = true; // moved (slider or a ty= link): stays open for this page, even back at "now"
+    this.syncShown();
   }
 
   /** refresh the date readout (cheap; only touches the DOM when the text changes) */
@@ -183,5 +213,13 @@ export class TimeBar {
       this.out.textContent = text;
     }
     this.nowBtn.setAttribute('aria-pressed', String(this.clock.live));
+  }
+}
+
+function readOpen(): boolean {
+  try {
+    return localStorage.getItem('ca.timeOpen') === '1';
+  } catch {
+    return false;
   }
 }

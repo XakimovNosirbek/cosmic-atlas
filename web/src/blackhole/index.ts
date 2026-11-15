@@ -68,7 +68,6 @@ export class BlackHoleFeature {
   onChange: () => void = () => {};
   onFly: (v: Partial<View>) => Promise<boolean> = async () => false;
   private diskOn = new Map<string, boolean>();
-  private infoBtn: HTMLButtonElement | null = null;
   private atFloor = false;
   private lastKey = '';
   private lastFrame: BhFrame | null = null;
@@ -184,21 +183,29 @@ export class BlackHoleFeature {
     return this.onFly(this.viewFor(h, this.isDiskOn(h) ? 25 : 40));
   }
 
-  /** info card: show the "Experience it" button for black holes */
+  /**
+   * Info card of a black hole: its main button flies in to the lensing view (25 or 40 r_s) where the
+   * warped sky and the time-dilation / tide readout are, instead of the distant overview that "Fly
+   * here" gives other objects. One clear action, no second button to find.
+   */
   infoFor(title: string, actions: HTMLElement, nav: NavController) {
+    const fly = actions.querySelector<HTMLButtonElement>('#info-fly');
+    if (!fly) return;
     const h = this.find(title);
-    if (!this.infoBtn) {
-      this.infoBtn = document.createElement('button');
-      this.infoBtn.type = 'button';
-      this.infoBtn.className = 'btn bh-exp';
-      this.infoBtn.textContent = tr('bh.experience');
-    }
     if (!h) {
-      this.infoBtn.remove();
+      if (fly.dataset.bh) {
+        delete fly.dataset.bh;
+        fly.classList.remove('bh-exp');
+        fly.setAttribute('data-i18n', 'info.fly');
+        fly.textContent = tr('info.fly');
+      }
       return;
     }
-    this.infoBtn.onclick = () => void this.experience(h, nav);
-    if (this.infoBtn.parentElement !== actions) actions.append(this.infoBtn);
+    fly.dataset.bh = '1';
+    fly.classList.add('bh-exp');
+    fly.setAttribute('data-i18n', 'bh.experience');
+    fly.textContent = tr('bh.experience');
+    fly.onclick = () => void this.experience(h, nav);
   }
 
   /** per frame; returns true when the picture needs a new frame */
