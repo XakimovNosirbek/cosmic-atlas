@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
-import { createReadStream, existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve, sep } from 'node:path';
+import { createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, resolve, sep } from 'node:path';
+import { buildLearnSite, LANGS, type SourceDoc } from './src/seo/learn.ts';
 
 /**
  * Serve ../data/tiles at /tiles in `vite dev` and `vite preview` without copying it into
@@ -55,9 +56,44 @@ function tiles(): Plugin {
   };
 }
 
+/**
+ * After the build: static, crawlable copies of the docs articles (dist/learn/<lang>/<slug>/), the
+ * sitemap and robots.txt (src/seo/learn.ts). VITE_SITE_URL overrides the public site address.
+ */
+function seoPages(): Plugin {
+  let outDir = 'dist';
+  return {
+    name: 'cosmic-atlas-seo',
+    apply: 'build',
+    configResolved(c) {
+      outDir = resolve(c.root, c.build.outDir);
+    },
+    closeBundle() {
+      const docsRoot = resolve(import.meta.dirname, 'public/docs');
+      const docs: SourceDoc[] = [];
+      for (const lang of LANGS) {
+        const dir = resolve(docsRoot, lang);
+        if (!existsSync(dir)) continue;
+        for (const f of readdirSync(dir).filter((x) => x.endsWith('.md')).sort())
+          docs.push({ lang, slug: f.slice(0, -3), text: readFileSync(resolve(dir, f), 'utf8') });
+      }
+      const files = buildLearnSite(docs, {
+        site: process.env.VITE_SITE_URL || 'https://ismoilovdevml.github.io/cosmic-atlas/',
+        today: new Date().toISOString().slice(0, 10),
+      });
+      for (const f of files) {
+        const p = resolve(outDir, f.path);
+        mkdirSync(dirname(p), { recursive: true });
+        writeFileSync(p, f.content);
+      }
+      this.info?.(`seo: ${files.length} files (learn pages, sitemap.xml, robots.txt)`);
+    },
+  };
+}
+
 export default defineConfig({
   base: './',
-  plugins: [tiles()],
+  plugins: [tiles(), seoPages()],
   build: {
     target: 'es2022',
     // three/webgpu (WebGPU + WebGL2 backends + TSL) is ~0.9 MB minified on its own and gets its own

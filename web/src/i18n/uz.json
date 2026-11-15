@@ -1,7 +1,7 @@
 {
-  "app.title": "Cosmic Atlas: koinot xaritasi",
+  "app.title": "Cosmic Atlas: koinotning 3D xaritasi",
   "app.wordmark": "Cosmic Atlas",
-  "app.description": "Koinotning 3D xaritasi: Quyosh atrofidan tortib kosmik toʻrgacha.",
+  "app.description": "Brauzerdagi haqiqiy koinotning bepul 3D xaritasi: Gaia oʻlchagan 39,6 million yulduz, DESI xaritalagan 15 million galaktika, Quyosh tizimi, qora tuynuklar, Laniakea va kosmik toʻr, har biri oʻlchangan joyida.",
   "app.skip": "Qidiruvga oʻtish",
   "app.canvas": "Koinotning 3D xaritasi. Aylantirish uchun torting, yaqinlashtirish uchun gʻildirakni aylantiring yoki ikki barmoq bilan qisting, W A S D bilan uching, tafsilotlar uchun nuqtani bosing.",
   "lang.label": "Til",
@@ -229,6 +229,8 @@
   "help.v.dbl": "Shu nuqtaga uchish",
   "help.k.search": "/",
   "help.v.search": "Qidiruv",
+  "help.learn": "Barcha maqolalar: yulduzlar, galaktikalar, qora tuynuklar, Quyosh tizimi",
+  "help.learnHref": "learn/uz/",
   "help.data": "Maʼlumotlar haqida",
   "help.close": "Yopish",
   "credits.sesame": "Nomlarni aniqlash: CDS Sesame (CfAʼdagi VizieR koʻzgusi orqali). Qizil siljishdan masofa Planck18 hamharakat masofasi bilan hisoblanadi.",

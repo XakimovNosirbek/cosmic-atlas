@@ -1,7 +1,7 @@
 {
-  "app.title": "Cosmic Atlas",
+  "app.title": "Cosmic Atlas: 3D map of the universe",
   "app.wordmark": "Cosmic Atlas",
-  "app.description": "A navigable 3D map of the universe, from the Sun's neighbourhood to the cosmic web.",
+  "app.description": "Free 3D map of the real universe in your browser: 39.6 million Gaia stars, 15 million DESI galaxies, the Solar System, black holes, Laniakea and the cosmic web, each at its measured position.",
   "app.skip": "Skip to search",
   "app.canvas": "3D map of the universe. Drag to orbit, scroll or pinch to zoom, W A S D to fly, click a point for details.",
   "lang.label": "Language",
@@ -229,6 +229,8 @@
   "help.v.dbl": "Fly to that point",
   "help.k.search": "/",
   "help.v.search": "Search",
+  "help.learn": "All articles: stars, galaxies, black holes, the Solar System",
+  "help.learnHref": "learn/en/",
   "help.data": "About the data",
   "help.close": "Close",
   "credits.sesame": "Name resolution: CDS Sesame (via the VizieR mirror at CfA). Distances for redshifts use Planck18 comoving distance.",

@@ -37,6 +37,10 @@ number on screen comes with the catalogue it came from.
   Gaia BH3. The light around it is ray-traced in general relativity, and a live readout shows how
   time slows and tides grow as you go closer.
 - **Read about anything.** Every object links to a short article, in Uzbek, English or Russian.
+  The 57 articles, with their sources, are also plain web pages:
+  [English](https://ismoilovdevml.github.io/cosmic-atlas/learn/en/),
+  [Oʻzbekcha](https://ismoilovdevml.github.io/cosmic-atlas/learn/uz/),
+  [Русский](https://ismoilovdevml.github.io/cosmic-atlas/learn/ru/).
 - **Share a view.** The link names the object you are looking at, e.g. `#at=Saturn`. Save views
   and play them back as a short story.
 
