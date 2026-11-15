@@ -37,10 +37,14 @@ for (const id of ['sg-grid', 'cf4-flow', 'cf4-density']) await A((id) => window.
 for (const id of ['galaxies-desi', 'galaxies-sdss', 'galaxies-2dfgrs', 'galaxies-6dfgs', 'groups-2mrs', 'gw-volumes', 'frb', 'neutrinos']) await A((id) => window.__atlas.setLayer(id, false), id);
 console.log('load', await A(() => window.__atlas.cosmo.load()));
 await A(() => document.getElementById('info')?.setAttribute('hidden', ''));
-if ((await A(() => document.getElementById('layers-toggle').getAttribute('aria-expanded'))) === 'true') await page.click('#layers-toggle');
+// keep the scene, its labels and the info card (the approach of scripts/readme_shots.mjs): panels,
+// overlays and the time bar are not part of these figures
+await page.addStyleTag({ content: 'body > *:not(#view):not(#labels):not(#info) { visibility: hidden !important; }' });
 
 // 1. supergalactic top-down view: camera on +SGZ at the distance that shows ±200 Mpc vertically (fov 55°)
 const d200 = 2e8 / Math.tan((27.5 * Math.PI) / 180);
+// 1.5 mag less exposure: the 2MRS galaxies saturate at this scale and bury the streamlines and labels
+await A(() => window.__atlas.setExposure(-1.5));
 await A((d) => window.__atlas.cosmo.sgView(d), d200);
 await settle(1200);
 const gpu = await A(() => window.__atlas.bh.gpuMs(2500));
@@ -67,6 +71,7 @@ await page.screenshot({ path: `${outdir}/laniakea-labels.png` });
 console.log('labels', JSON.stringify(await A(() => [...document.querySelectorAll('#labels .label, #labels [data-kind]')].map((l) => l.textContent).filter(Boolean).slice(0, 40))));
 
 // 3. groups: Virgo region with markers, the Virgo Cluster card
+await A(() => window.__atlas.setExposure(0));
 await A(() => window.__atlas.setLayer('cf4-density', false));
 await A(() => window.__atlas.setLayer('cf4-flow', false));
 await A(() => window.__atlas.setLayer('groups-2mrs', true));
@@ -80,8 +85,10 @@ console.log('virgo card', JSON.stringify(await A(() => [...document.querySelecto
 await page.screenshot({ path: `${outdir}/laniakea-groups.png` });
 
 // 4. density pick on Shapley from the top-down view
+await A(() => window.__atlas.setExposure(-1.5));
 await A(() => window.__atlas.setLayer('cf4-density', true));
 await A(() => window.__atlas.setLayer('cf4-flow', true));
+await A(() => window.__atlas.setLayer('groups-2mrs', false));
 await A((d) => window.__atlas.cosmo.sgView(d), d200);
 await settle();
 const sh = await A(() => window.__atlas.cosmo.screenOf('Shapley attractor'));
