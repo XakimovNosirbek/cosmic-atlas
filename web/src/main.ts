@@ -453,7 +453,10 @@ export class App {
       if (!on) this.streamer.releaseLayer(L);
     } else if (this.mwCfg?.id === id) this.mw.visible = on;
     else if (this.skyCfg?.id === id) this.sky.visible = on;
-    else if (this.gwCfg?.id === id) this.gw.visible = on; // --- GW hook
+    else if (this.gwCfg?.id === id) {
+      this.gw.visible = on; // --- GW hook
+      if (this.labelItems) this.buildLabels(); // event labels follow their layer
+    }
     else if (id === 'solar') this.solar.visible = on; // --- Solar System hook
     else if (this.dust.cfg?.id === id) this.dust.visible = on; // --- Dust hook
     else if (this.solar.extra(id)) this.solar.extra(id)!.visible = on; // --- Small bodies hook
@@ -715,6 +718,7 @@ export class App {
     for (const e of entries) {
       if (!e.xyz || this.msg.hidesKind(e.kind)) continue; // --- Messengers hook: a switched-off layer hides its labels
       if (this.cosmo.hidesLabel(e)) continue; // --- Cosmography hook: unnamed groups, kinds of switched-off layers
+      if (e.kind === 'gw_event' && !this.gw.visible) continue; // --- GW hook: no event labels while the volumes are off
       const d = e.dist_pc;
       const absMag = e.mag !== null && e.mag !== undefined && d > 0 ? e.mag - 5 * Math.log10(d / 10) : null;
       const isMw = /^milky way/i.test(e.name);
