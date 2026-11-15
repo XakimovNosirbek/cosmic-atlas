@@ -79,6 +79,11 @@ export const LAYER_VIEWS: Record<string, NamedView> = {
   cmb: { target: { sun: true }, dist: 3e10, pitchDeg: 20 },
   frb: { target: { sun: true }, dist: 6e9, pitchDeg: 25 },
   neutrinos: { target: { sun: true }, dist: 1, pitchDeg: 10 },
+  // --- Cosmography hook: the supergalactic plane from +SGZ; groups at Local Volume to Virgo scale
+  'sg-grid': NAMED_VIEWS.supergalactic,
+  'cf4-flow': NAMED_VIEWS.supergalactic,
+  'cf4-density': NAMED_VIEWS.supergalactic,
+  'groups-2mrs': { target: { sun: true }, dist: 6e7, pitchDeg: 30 },
 };
 
 export const LAYER_ID = /^[A-Za-z0-9_.-]{1,64}$/;
