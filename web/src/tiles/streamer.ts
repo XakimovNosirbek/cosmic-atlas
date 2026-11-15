@@ -20,7 +20,7 @@
 
 import * as THREE from 'three/webgpu';
 import type { Vec3 } from '../math/frames';
-import { PC_PER_KMS_MYR, parseMeta, parseRenderRecords, parseVelocityRecords, readExtRecord, type LayerMeta, type NodeMeta, type RenderRecords } from './format';
+import { PC_PER_KMS_MYR, nodeFileUrl, parseMeta, parseRenderRecords, parseVelocityRecords, readExtRecord, type LayerMeta, type NodeMeta, type RenderRecords } from './format';
 import type { PointLayerConfig } from '../data/manifest';
 import { fetchJson } from '../data/tilebase';
 import { createBlobMaterial, createLayerMaterials, makeNodeGeometry, QUAD, type LayerMaterials, type PointUniforms } from '../render/pointMaterial';
@@ -133,6 +133,11 @@ export class PointLayer {
     return `${this.cfg.path.replace(/\/$/, '')}/${rel}`;
   }
 
+  /** a node's file: on this host, or on meta.remote for hybrid lite sets */
+  nodeUrl(m: NodeMeta, suffix: '.bin' | '.ext.bin' | '.vel.bin') {
+    return nodeFileUrl(this.cfg.path.replace(/\/$/, ''), this.meta, m, suffix);
+  }
+
   ensureBlobCapacity(n: number) {
     if (n <= this.blobCap) return;
     const cap = Math.max(n, this.blobCap * 2);
@@ -198,7 +203,7 @@ export class PointLayer {
 
   loadExt(n: TileNode): Promise<ArrayBuffer> {
     if (!n.ext) {
-      n.ext = fetch(this.url(`n/${n.meta.name}.ext.bin`)).then((r) => {
+      n.ext = fetch(this.nodeUrl(n.meta, '.ext.bin')).then((r) => {
         if (!r.ok) throw new Error(`${n.meta.name}.ext.bin: HTTP ${r.status}`);
         return r.arrayBuffer();
       });
@@ -665,7 +670,7 @@ export class Streamer {
   private loadVel(n: TileNode) {
     if (n.vel) return;
     const L = n.layer;
-    const p = fetch(L.url(`n/${n.meta.name}.vel.bin`))
+    const p = fetch(L.nodeUrl(n.meta, '.vel.bin'))
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.arrayBuffer();
@@ -706,7 +711,7 @@ export class Streamer {
       return n.vel!.catch(() => null);
     }
     try {
-      const r = await fetch(n.layer.url(`n/${n.meta.name}.vel.bin`));
+      const r = await fetch(n.layer.nodeUrl(n.meta, '.vel.bin'));
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return parseVelocityRecords(await r.arrayBuffer(), n.meta.count);
     } catch {
@@ -723,7 +728,7 @@ export class Streamer {
     n.state = NodeState.Loading;
     this.inFlight++;
     const L = n.layer;
-    fetch(L.url(`n/${n.meta.name}.bin`))
+    fetch(L.nodeUrl(n.meta, '.bin'))
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.arrayBuffer();
