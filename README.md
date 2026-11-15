@@ -102,6 +102,36 @@ observed.*
 *The edge of the map: the Planck cosmic microwave background, drawn as a shell around every galaxy
 survey.*
 
+## Limitations
+
+The atlas places real measurements, but a 3D map of the universe has to make choices. These are the
+ones that change what you see:
+
+- **Galaxies sit where their redshift puts them.** DESI, SDSS, 6dFGS, 2dFGRS and 2MRS galaxies are
+  placed at the Planck 2018 comoving distance of their heliocentric redshift. Their own motions
+  (a few hundred km/s, up to about 1,000 km/s inside clusters) are not removed, so galaxy clusters
+  look stretched along the line of sight into "fingers" that point at the Sun. The redshifts are also
+  not moved to the rest frame of the cosmic microwave background: the Sun moves at 370 km/s relative
+  to it, which pushes redshift distances out by up to about 5.5 Mpc on one side of the sky and pulls
+  them in on the other. Below z = 0.003 (about 13 Mpc) redshift distances are not used at all; those
+  galaxies are placed at measured distances (Cepheids, TRGB, Tully-Fisher, …) or left out.
+- **Two distance scales meet between about 10 and 50 Mpc.** Redshift distances use H0 = 67.66 km/s/Mpc
+  (Planck 2018). Measured, redshift-independent distances (UNGC, Cosmicflows-4) follow the local
+  distance ladder, which corresponds to H0 of about 73 to 75. The same galaxy can therefore sit up to
+  about 10 % farther away in a redshift layer than in a measured-distance layer. 86 of the 868 Local
+  Volume galaxies only have the catalogue's Hubble-flow estimate (H0 = 73). The Cosmicflows-4 flows
+  and groups are drawn on the Planck scale (h = 0.6766), and their info cards also give the
+  Cosmicflows (H0 = 75) distance.
+- **One scene, many epochs.** Every distant object is placed at its comoving distance, where it is
+  now, but what it stands for is the light that left it long ago. A quasar at z = 2 is shown as it was
+  10.5 billion years ago; the cosmic microwave background, 13.9 Gpc away, as it was 372,000 years after
+  the Big Bang; the nearest stars as they were a few years ago. The map is not a picture of a single
+  moment.
+- **Black holes do not spin here.** The fly-in view ray-traces the Schwarzschild metric. Real black
+  holes spin (Kerr), which shifts and flattens one side of the shadow. Far from Earth, the sky behind
+  a hole is the sky as seen from Earth, because the real sky at that spot is not known at this
+  resolution.
+
 ## Run it locally
 
 ```bash
