@@ -130,14 +130,42 @@ Written by `build_tiles.py --velocity helio|lsr` (default `auto` = `helio` when 
 ```
 
 and every node a `vmax` (km/s, the fastest stored velocity in that node, rounded up to 0.1), so a
-viewer can grow the node's bounding sphere by `vmax·|Δt|` and not cull points that moved out of it.
+viewer can grow the node's bounding sphere (see the viewer rule below) and not cull points that moved out of it.
 An optional top-level `note` (free text) carries caveats such as "preview, partial sky".
 
-**Viewer rule (§5):** the shader draws `inst + (v − sunVelocity)·Δt·1.022712` (pc, Δt in Myr), in
-float32 relative to the node centre, so motion is always shown relative to the Sun (the Solar
-System sits at the origin). Motion is linear: it ignores the Galaxy's gravity, which bends real
-paths; Bailer-Jones 2015 (A&A 575, A35) shows linear motion gives inaccurate, biased encounter
-parameters for many stars, so the viewer limits Δt to ±1 Myr and says so.
+**Viewer rule (§5): Galactic orbits** (`web/src/orbits/`). Each point is drawn where its orbit in
+an axisymmetric Milky Way potential puts it after Δt (|Δt| ≤ 100 Myr), relative to where the Sun's own
+orbit puts the Sun, in a frame that turns with the Sun's Galactic azimuth (the Galactic Centre stays
+along +x; the Sun turns ~157° in 100 Myr, which would otherwise spin the whole neighbourhood):
+`P(Δt) = Hᵀ · Rz(−Δψ⊙) · (x★(Δt) − x⊙(Δt))`. Straight lines (Bailer-Jones 2015, A&A 575, A35:
+inaccurate, biased encounters) are no longer used, not even below 1 Myr: in the co-rotating frame a
+star at 100 pc with the Sun's velocity already moves 2.9 pc in 1 Myr, so switching models there would
+make the stars jump.
+
+- Potential: MWPotential2014 (Bovy 2015, ApJS 216, 29; galpy's parameters, ro = 8 kpc, vo = 220 km/s):
+  power-law bulge with cut-off, Miyamoto–Nagai disc, NFW halo. Matches galpy forces to 1e-12.
+- Frame: astropy `Galactocentric` convention with the centre at l = b = 0, R0 = 8275 pc (GRAVITY 2021),
+  z⊙ = 20.8 pc, v⊙ = (11.1, vc(R⊙) + 12.24, 7.25) km/s (Schönrich et al. 2010), vc(R⊙) = 219.24 km/s
+  from the potential. Checked against astropy to < 3e-5 pc and 4e-4 km/s.
+- Integrator: kick–drift–kick leapfrog. CPU (selected star, info card): float64, step ≤ 0.05 Myr.
+  GPU (every point): the same leapfrog relative to the Sun with 16–128 fixed steps of ≤ 0.78 Myr; the
+  CPU hands the shader the Sun's coarse-step track as uniforms. On WebGPU a compute pass per octree
+  node writes the displacement into a storage buffer once per epoch change (drawing then costs what
+  "now" costs); on WebGL2 the loop runs in the vertex shader every frame.
+- Validation (`scripts/make_orbit_fixtures.py`, `web/test/orbits.test.ts`): the Sun and 5 Gaia DR3
+  stars over ±100 Myr agree with galpy (dop853) to < 0.06 pc; |ΔE/E| ≤ 1.5e-6, |ΔLz/Lz| ≤ 1.4e-14;
+  Gliese 710 passes 0.0518 pc from the Sun at +1.294 Myr (galpy 0.0518 pc; straight line 0.0512 pc);
+  the GPU recipe agrees with the CPU path to ≤ 4e-4 of the distance travelled; read back from the
+  GPU it agrees with its JS twin to p99 0.0023 pc (730 k stars of the 1 kpc layer at ±50 Myr).
+- The Sun's azimuthal period in this potential is 249.9 Myr (galpy 249.87): vc(R⊙) = 219 km/s is low
+  next to current estimates, so the Sun's guiding radius sits outside R0. The circular period at R⊙
+  is 231.9 Myr.
+- What it leaves out: spiral arms, the bar, molecular clouds and stellar encounters. Beyond ~100 Myr
+  individual positions are illustrative; the UI says so. Stars without a radial velocity (q = 0)
+  follow the orbit of their tangential velocity and fade as before.
+- Culling: a node's sphere grows by `(2 vmax + 0.03 r) |Δt| · 1.022712 + |Δψ⊙| r` (r = the node's
+  distance from the Sun plus its half-diagonal); on the 100 pc preview (every point) and the full 1 kpc
+  layer (1 in 400 points + each node's fastest) no point exceeds 0.76 of it at ±10 … ±100 Myr.
 
 ### Layer note: `star-clusters`
 

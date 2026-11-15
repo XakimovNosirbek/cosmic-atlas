@@ -225,34 +225,53 @@ describe('GPU recipe (gpuDisplacement, the shader\'s twin) against the CPU integ
   });
 });
 
-// the real 100 pc Gaia layer when it is built (gitignored data): every point stays inside the
-// culling sphere the streamer grows for its node
-const TILES = resolve(__dirname, '../../data/tiles/stars-gaia-preview');
-describe.skipIf(!existsSync(resolve(TILES, 'meta.json')))('culling bound on the Gaia 100 pc layer', () => {
-  it('no point moves farther than driftBound() at ±10 … ±100 Myr', () => {
-    const meta = parseMeta(JSON.parse(readFileSync(resolve(TILES, 'meta.json'), 'utf8')));
-    const lines: string[] = [];
-    for (const t of [-100, -30, 10, 100]) {
-      const tr = gpuTrack(t)!;
-      let worst = 0;
-      let n = 0;
-      for (const nd of meta.nodes) {
-        const rb = readFileSync(resolve(TILES, `n/${nd.name}.bin`));
-        const vb = readFileSync(resolve(TILES, `n/${nd.name}.vel.bin`));
-        const rec = parseRenderRecords(rb.buffer.slice(rb.byteOffset, rb.byteOffset + rb.byteLength) as ArrayBuffer, nd.count);
-        const vel = parseVelocityRecords(vb.buffer.slice(vb.byteOffset, vb.byteOffset + vb.byteLength) as ArrayBuffer, nd.count);
-        const r = Math.hypot(...nd.center) + nd.half * Math.sqrt(3);
-        const bound = driftBound(r, nd.vmax ?? 0, t, tr.dpsi);
-        for (let i = 0; i < nd.count; i++) {
-          const p = [0, 1, 2].map((k) => nd.center[k] + rec.positions[i * 3 + k]);
-          const d = Math.hypot(...gpuDisplacement(p, [vel[i * 4], vel[i * 4 + 1], vel[i * 4 + 2]], tr));
-          worst = Math.max(worst, d / bound);
-          n++;
-        }
-      }
-      expect(worst).toBeLessThan(1);
-      lines.push(`t = ${t} Myr: ${n} points, largest displacement / bound = ${worst.toFixed(3)}`);
+// the real Gaia layers when they are built (gitignored data): every point stays inside the culling
+// sphere the streamer grows for its node. The 100 pc preview is checked point by point; the full
+// 39.6 M-star layer on every `stride`-th point plus the fastest point of each node.
+function cullingCheck(dir: string, stride: number, epochs: number[]) {
+  const meta = parseMeta(JSON.parse(readFileSync(resolve(dir, 'meta.json'), 'utf8')));
+  const nodes = meta.nodes.map((nd) => {
+    const rb = readFileSync(resolve(dir, `n/${nd.name}.bin`));
+    const vb = readFileSync(resolve(dir, `n/${nd.name}.vel.bin`));
+    const rec = parseRenderRecords(rb.buffer.slice(rb.byteOffset, rb.byteOffset + rb.byteLength) as ArrayBuffer, nd.count);
+    const vel = parseVelocityRecords(vb.buffer.slice(vb.byteOffset, vb.byteOffset + vb.byteLength) as ArrayBuffer, nd.count);
+    const pick: number[] = [];
+    let fast = 0;
+    for (let i = 0; i < nd.count; i++) {
+      if (i % stride === 0) pick.push(i);
+      if (Math.hypot(vel[i * 4], vel[i * 4 + 1], vel[i * 4 + 2]) > Math.hypot(vel[fast * 4], vel[fast * 4 + 1], vel[fast * 4 + 2])) fast = i;
     }
-    console.log(lines.join('\n'));
+    if (nd.count && fast % stride) pick.push(fast);
+    return { nd, rec, vel, pick };
+  });
+  const lines: string[] = [];
+  for (const t of epochs) {
+    const tr = gpuTrack(t)!;
+    let worst = 0;
+    let n = 0;
+    for (const { nd, rec, vel, pick } of nodes) {
+      const r = Math.hypot(...nd.center) + nd.half * Math.sqrt(3);
+      const bound = driftBound(r, nd.vmax ?? 0, t, tr.dpsi);
+      for (const i of pick) {
+        const p = [0, 1, 2].map((k) => nd.center[k] + rec.positions[i * 3 + k]);
+        const d = Math.hypot(...gpuDisplacement(p, [vel[i * 4], vel[i * 4 + 1], vel[i * 4 + 2]], tr));
+        worst = Math.max(worst, d / bound);
+        n++;
+      }
+    }
+    expect(worst).toBeLessThan(1);
+    lines.push(`${meta.layer} t = ${t} Myr: ${n} points, largest displacement / bound = ${worst.toFixed(3)}`);
+  }
+  console.log(lines.join('\n'));
+}
+
+const PREVIEW = resolve(__dirname, '../../data/tiles/stars-gaia-preview');
+const FULL = resolve(__dirname, '../../data/tiles/stars-gaia');
+describe('culling bound on the real Gaia layers', () => {
+  it.skipIf(!existsSync(resolve(PREVIEW, 'meta.json')))('100 pc preview: no point moves farther than driftBound() at ±10 … ±100 Myr', () => {
+    cullingCheck(PREVIEW, 1, [-100, -30, 10, 100]);
   }, 120_000);
+  it.skipIf(!existsSync(resolve(FULL, 'meta.json')))('full 1 kpc layer (39.6 M stars, 1 in 400 + each node\'s fastest): same', () => {
+    cullingCheck(FULL, 400, [-100, 10, 100]);
+  }, 300_000);
 });

@@ -325,7 +325,7 @@ export function installDebugApi(app: App) {
      * from the shader's JS twin (orbits/integrate.ts gpuPosition) projected to CSS px, to check that
      * the GPU pick finds it at the same place
      */
-    movedProbe: async (layerId: string) => {
+    movedProbe: async (layerId: string, fullOnly = false) => {
       const cam = app.nav.camPos();
       let best: { id: string; x: number; y: number; xyz: Vec3; lum: number } | null = null;
       for (const n of app.streamer.drawn()) {
@@ -336,6 +336,7 @@ export function installDebugApi(app: App) {
         for (let i = 0; i < n.meta.count; i++) {
           const lum = n.data.rgbl[i * 4 + 3];
           if (best && lum <= best.lum) continue;
+          if (fullOnly && n.velData[i * 4 + 3] !== 1) continue; // only stars with a radial velocity (orbit card)
           const c = n.meta.center;
           const p = n.data.positions;
           const v = n.velData;

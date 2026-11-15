@@ -5,14 +5,16 @@
 //      pick at a star's JS-predicted screen position (must return that star)
 //   3. the info card of a picked star with its "Galactic orbit" row
 //   4. saved views: three states saved, the dialog, a #story= link played to its last state
-// usage (dev server running): node scripts/capture_orbits.mjs [outdir=../figures] [baseUrl] [prefix=orbits]
+// usage (dev server running): node scripts/capture_orbits.mjs [outdir=../figures] [baseUrl] [prefix=orbits] [layer=stars-gaia]
+//   layer: stars-gaia (39.6 M stars, 1 kpc) or stars-gaia-preview (67 k, 100 pc)
 import { chromium } from 'playwright-core';
 
-const [,, outdir = '../figures', base = 'http://localhost:5173/', prefix = 'orbits'] = process.argv;
-// only the 100 pc Gaia stars: the Milky Way model, galaxies, dust and the sky image are off
-const LAYERS = 'l=stars-gaia-preview,~gaia-sky,~dust,~synthetic-stars,~star-clusters,~milky-way-model,~galaxies-desi,~galaxies-2mrs,~local-group,~local-volume';
-// +3 mag: the stars are 1–3 kpc from the camera in the wide view
-const EXPOSURE = 3;
+const [,, outdir = '../figures', base = 'http://localhost:5173/', prefix = 'orbits', LAYER = 'stars-gaia'] = process.argv;
+const OTHER = LAYER === 'stars-gaia' ? 'stars-gaia-preview' : 'stars-gaia';
+// only the Gaia stars: the Milky Way model, galaxies, dust and the sky image are off
+const LAYERS = `l=${LAYER},~${OTHER},~stars-bright,~gaia-sky,~dust,~synthetic-stars,~star-clusters,~milky-way-model,~galaxies-desi,~galaxies-2mrs,~local-group,~local-volume`;
+// the preview's 67 k stars need +3 mag to show from 2.6 kpc; the full layer does not
+const EXPOSURE = LAYER === 'stars-gaia' ? 0 : 3;
 const WIDE = { focus: [0, 0, 0], dist: 2600, yaw: -2.1, pitch: 0.9 };
 const NEAR = { focus: [0, 0, 0], dist: 300, yaw: -2.1, pitch: 0.5 };
 const SHOTS = [['minus50Myr', -50], ['now', 0], ['plus50Myr', 50]];
@@ -46,8 +48,10 @@ const infoRows = () => page.evaluate(() => [...document.querySelectorAll('#info-
 const closeInfo = () => page.evaluate(() => document.getElementById('info-close')?.click());
 
 await page.evaluate((e) => window.__atlas.setExposure(e), EXPOSURE);
+// the layer list would cover a third of the figures
+await page.evaluate(() => { const b = document.getElementById('layers-toggle'); if (b?.getAttribute('aria-expanded') === 'true') b.click(); });
 let s = await settle();
-console.log('backend', s.backend, JSON.stringify(s.layers.find((l) => l.id === 'stars-gaia-preview')));
+console.log('backend', s.backend, JSON.stringify(s.layers.find((l) => l.id === LAYER)));
 for (const [name, myr] of SHOTS) {
   await page.evaluate((v) => window.__atlas.setView(v), WIDE);
   await page.evaluate((m) => window.__atlas.setEpoch(m), myr);
@@ -56,15 +60,15 @@ for (const [name, myr] of SHOTS) {
   await page.screenshot({ path: `${outdir}/${prefix}-${name}.png` });
   const ui = await page.evaluate(() => ({ epoch: document.querySelector('.t-epoch')?.textContent, note: document.querySelector('.t-note')?.textContent?.slice(0, 90), hash: location.hash }));
   console.log(name, JSON.stringify({ epoch: await page.evaluate(() => window.__atlas.epoch()), steps: await page.evaluate(() => window.__atlas.orbitSteps()),
-    drawnPoints: s.drawnPoints, movingNodes: s.movingNodes, pending: s.pending?.['stars-gaia-preview'], ui }));
+    drawnPoints: s.drawnPoints, movingNodes: s.movingNodes, pending: s.pending?.[LAYER], ui }));
   if (myr === 0) continue;
-  const rb = await page.evaluate(() => window.__atlas.orbitReadback('stars-gaia-preview', 400));
+  const rb = await page.evaluate((id) => window.__atlas.orbitReadback(id, 40), LAYER);
   console.log('  GPU vs JS twin:', JSON.stringify({ points: rb.points, steps: rb.steps, p50Pc: rb.p50Pc, p99Pc: rb.p99Pc, worstAbsPc: rb.worstAbsPc, worstAt: rb.worstAt }));
   await page.evaluate((v) => window.__atlas.setView(v), NEAR);
   await page.evaluate(() => window.__atlas.setExposure(0));
   await settle();
   await frame();
-  const probe = await page.evaluate(() => window.__atlas.movedProbe('stars-gaia-preview'));
+  const probe = await page.evaluate((id) => window.__atlas.movedProbe(id), LAYER);
   if (!probe) {
     console.log('  no probe star on screen');
     await page.evaluate((e) => window.__atlas.setExposure(e), EXPOSURE);
@@ -84,7 +88,7 @@ await page.evaluate(() => window.__atlas.setExposure(0));
 await page.evaluate(() => window.__atlas.setEpoch(10));
 await settle();
 await frame();
-const probe = await page.evaluate(() => window.__atlas.movedProbe('stars-gaia-preview'));
+const probe = await page.evaluate((id) => window.__atlas.movedProbe(id, true), LAYER);
 await page.evaluate(([x, y]) => window.__atlas.pickAt(x, y), [probe.x, probe.y]);
 await page.waitForTimeout(800);
 await frame();
