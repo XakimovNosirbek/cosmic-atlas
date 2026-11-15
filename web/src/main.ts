@@ -39,6 +39,7 @@ import { NodeState, PointLayer, Streamer, type TileNode } from './tiles/streamer
 import { SCALE_TOUR, resolveBeat, resolveTarget, type Beat, type Tour, type TourContext } from './tour/tours';
 import { ScaleRail } from './ui/rail';
 import { LAYER_GROUPS, layerGroup } from './ui/layerGroups';
+import { parseSkyCoord, type SkyCoord } from './search/coords';
 // --- Solar System hook (web/src/solar): live planets, time control, probes
 import { SOLAR_LABEL_MAX, SolarSystem, TimeBar, flyTargetForLatLon, observerGalacticXyz, solarInfo, tr as solarTr, type SolarEntry } from './solar';
 // --- Black hole hook (web/src/blackhole): lensing post pass, disk, HUD, approach to 1.5 r_s.
@@ -1520,7 +1521,7 @@ export class App {
     };
     const update = () => {
       active = -1;
-      items = buildSuggestions(input.value, this.catalog).map((s) => this.suggestionRow(s));
+      items = [...this.coordSuggestion(input.value), ...buildSuggestions(input.value, this.catalog).map((s) => this.suggestionRow(s))];
       render();
     };
     input.addEventListener('input', update);
@@ -1535,7 +1536,7 @@ export class App {
         if (active >= 0) choose(active);
         else if (items.length > 1 || (items.length === 1 && !searchCatalog(this.catalog, q).length)) choose(0);
         else if (!items.length && q) {
-          items = buildSuggestions(q, this.catalog).map((s) => this.suggestionRow(s));
+          items = [...this.coordSuggestion(q), ...buildSuggestions(q, this.catalog).map((s) => this.suggestionRow(s))];
           choose(0);
         }
         input.blur();
@@ -1657,6 +1658,39 @@ export class App {
   }
 
   /** one dropdown row (HTML is built from escaped text only) */
+  /** a typed sky position (search/coords.ts) becomes the first suggestion */
+  private coordSuggestion(q: string): { label: string; run: () => void }[] {
+    const c = parseSkyCoord(q);
+    if (!c) return [];
+    const text = skyCoordText(c);
+    return [{
+      label: `<span class="n">${esc(t('search.coordLook', { coord: text }))}</span><span class="d"></span><span class="a">${esc(t('search.coordSub'))}</span>`,
+      run: () => this.showSkyPosition(c),
+    }];
+  }
+
+  /** a direction typed as coordinates: look along it from the Sun, with cone-search links */
+  showSkyPosition(c: SkyCoord) {
+    const dir: Vec3 = c.frame === 'icrs'
+      ? radecDistToGal(c.ra, c.dec, 1)
+      : [Math.cos(c.b / DEG) * Math.cos(c.l / DEG), Math.cos(c.b / DEG) * Math.sin(c.l / DEG), Math.sin(c.b / DEG)]; // DEG = 180/π
+    const rd = c.frame === 'icrs' ? { ra: c.ra, dec: c.dec } : galToRadec(dir);
+    const pos = `${fmtFixed(rd.ra, 5)} ${rd.dec >= 0 ? '+' : ''}${fmtFixed(rd.dec, 5)}`;
+    const view: Partial<View> = { focus: [0, 0, 0], dist: 1e-3, yaw: Math.atan2(-dir[1], -dir[0]), pitch: Math.asin(-dir[2]) };
+    this.selection = { xyz: [dir[0] * 1e3, dir[1] * 1e3, dir[2] * 1e3], title: skyCoordText(c), fly: view, ref: null };
+    this.infoRefresh = () => this.showSkyPosition(c);
+    this.openInfo({
+      kind: t('info.skyPosition'), title: skyCoordText(c), italic: false,
+      rows: this.positionRows(galToLB(dir), rd.ra, rd.dec), note: t('info.skyPositionNote'),
+      links: [
+        [t('link.simbadCone'), `https://simbad.cds.unistra.fr/simbad/sim-coo?Coord=${encodeURIComponent(pos)}&Radius=2&Radius.unit=arcmin`],
+        [t('link.gaiaCone'), `https://vizier.cds.unistra.fr/viz-bin/VizieR-4?-source=I/355/gaiadr3&-c=${encodeURIComponent(pos)}&-c.rs=60`],
+      ],
+      fly: view,
+    });
+    void this.nav.flyTo(view);
+  }
+
   private suggestionRow(s: SuggestItem): { label: string; run: () => void } {
     const row = (name: string, cls: string, right: string, sub: string) =>
       `<span class="n ${cls}">${esc(name)}</span><span class="d">${esc(right)}</span><span class="a">${esc(sub)}</span>`;
@@ -2084,6 +2118,12 @@ export class App {
 function smoothstep(a: number, b: number, x: number) {
   const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return k * k * (3 - 2 * k);
+}
+
+/** "RA 83.82200°, Dec −5.39100°" or "l 209.010°, b −19.380°" */
+function skyCoordText(c: SkyCoord): string {
+  const sg = (x: number) => `${x < 0 ? '−' : '+'}${fmtFixed(Math.abs(x), 4)}`;
+  return c.frame === 'icrs' ? `RA ${fmtFixed(c.ra, 4)}°, Dec ${sg(c.dec)}°` : `l ${fmtFixed(c.l, 3)}°, b ${sg(c.b)}°`;
 }
 
 /** a small icon button that copies `text` and says so in its tooltip */
