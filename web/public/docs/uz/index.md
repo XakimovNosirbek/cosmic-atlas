@@ -22,6 +22,7 @@ updated: 2026-11-13
 - [Gaia](doc:gaia-mission): qariyb ikki milliard yulduzni oʻlchagan kosmik apparat.
 - [DESI](doc:desi-survey): millionlab galaktikalarni 3D xaritaga tushirgan asbob.
 - [Kosmik toʻr](doc:cosmic-web): galaktikalar va boʻshliqlarning ulkan toʻri.
+- [Laniakea va kosmik oqimlar](doc:laniakea): uy oʻta toʻdamiz, Buyuk Attraktor va galaktikalar qanday oqishi.
 
 ## Yulduzlar va ulardan qolgan narsalar
 

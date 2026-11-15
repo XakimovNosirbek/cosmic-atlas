@@ -62,6 +62,10 @@ Every searchable or clickable thing has a `kind`. The registry is `web/src/objec
 | `gw_event` | gravitational-wave merger; drawn as its 90 % localisation volume, not a point (GW170817 at its host NGC 4993) | GWOSC GWTC list + LVK sky maps (`gw-events.json`) | `gravitational-waves` |
 | `frb` | fast radio burst: host galaxy with a redshift in 3D, all others sky directions only | FRBs/FRB repo hosts, CHIME/FRB Catalog 2 | `fast-radio-burst` |
 | `neutrino` | high-energy neutrino: alert directions + 90 % regions; identified sources (TXS 0506+056, NGC 1068) in 3D | IceCat-1, KM3NeT, IceCube papers | `neutrino` |
+| `supercluster` | basin of attraction of the CF4 velocity field (Laniakea, Shapley, ...) and the hidden Vela supercluster | Dupuy & Courtois 2023 (`cosmography.json`, scripts/build_cosmography.py) | `laniakea` |
+| `attractor` | the point a basin's flow converges on (Great Attractor = Laniakea's) | Dupuy & Courtois 2023, Table 1 | `laniakea` |
+| `galaxy_group` | 2MRS galaxy group or cluster with members, mass and velocity dispersion; named clusters in `cosmography.json`, all groups with >= 2 members in `groups-2mrs.json` | Tully 2015, AJ 149, 171 | `laniakea` |
+| `sg_grid` | labels of the supergalactic grid (axes, distance rings) | de Vaucouleurs et al. 1976 (RC2) | `laniakea` |
 | `cmb` | the last scattering surface (one entry; drawn as a shell, src/messengers/cmb.ts) | Planck PR3 SMICA | `cmb` |
 
 Kinds `frb` and `neutrino` also have direction-only entries (`xyz: null`) that the viewer loads from
@@ -136,7 +140,7 @@ updated: 2026-11-13
 ### Slug list v1
 
 Concepts: `index`, `how-to-use`, `units` (AU, light-year, parsec), `parallax`, `magnitude`, `redshift`,
-`lookback-time`, `distance-uncertainty`, `gaia-mission`, `desi-survey`, `cosmic-web`.
+`lookback-time`, `distance-uncertainty`, `gaia-mission`, `desi-survey`, `cosmic-web`, `laniakea`.
 Kinds: `star`, `white-dwarf`, `galaxy`, `quasar`, `local-group`, `milky-way`, `star-cluster`, `nebula`,
 `supernova-remnant`, `pulsar`, `neutron-star`, `black-hole`, `exoplanet`, `spacecraft`,
 `interstellar-message`, `seti`, `gravitational-waves`, `fast-radio-burst`, `neutrino`.
