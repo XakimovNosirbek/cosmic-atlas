@@ -132,9 +132,14 @@ export async function loadManifest(url = 'layers.json'): Promise<Manifest> {
   return (await r.json()) as Manifest;
 }
 
-/** normalised identifier for duplicate detection: case/space-free, MESSIER031 -> m31 */
+/**
+ * normalised identifier for duplicate detection: case/space-free, MESSIER031 -> m31. Greek letters
+ * are kept: without them every Bayer name of a constellation ('α Lyr', 'β Lyr') became the same
+ * key ('lyr'), and 312 of the 653 named stars (Vega, Betelgeuse, Polaris ...) were dropped as
+ * duplicates of the first named star of their constellation.
+ */
 export function catalogKey(s: string): string {
-  const k = s.toLowerCase().replace(/[^a-z0-9*+]/g, '');
+  const k = s.toLowerCase().replace(/[^a-z0-9*+\u0370-\u03ff]/g, '');
   const m = k.match(/^(?:messier|m)0*(\d{1,3})$/);
   if (m) return `m${m[1]}`;
   const n = k.match(/^(ngc|ic|ugc|pgc|hip|hd)0*(\d+)$/);

@@ -2042,7 +2042,8 @@ export class App {
   }
 
   private solarEntry(name: string): SolarEntry | null {
-    const all = [...this.solar.entries, ...this.solar.featureEntries];
+    // features first: an asteroid can share a crater's name (Gale)
+    const all = [...this.solar.featureEntries, ...this.solar.entries];
     return all.find((x) => x.name === name || x.alt.includes(name)) ?? null;
   }
 

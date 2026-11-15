@@ -165,6 +165,27 @@ def parse_wgsn(html_text: str) -> pd.DataFrame:
     return df
 
 
+COMPONENT = re.compile(r"\s[B-H]$")
+
+
+def drop_shared_component_ids(entries: list[dict]) -> list[dict]:
+    """A named companion (WGSN 'α Ori B' = Siwarha, 'ε Boo B' = Pulcherrima, 'α Cen B' = Toliman)
+    resolves in SIMBAD to the primary's identifiers (HIP, HD, HR, Bayer, Gaia). The viewer drops a
+    catalogue entry that shares any name with an earlier one, so Betelgeuse vanished behind Siwarha.
+    Identifiers shared between entries stay with the primary only; a companion keeps its own
+    component designation ('α Ori B')."""
+    owners: dict[str, list[int]] = {}
+    for i, e in enumerate(entries):
+        for a in e["alt"]:
+            owners.setdefault(a.lower(), []).append(i)
+    out = []
+    for i, e in enumerate(entries):
+        if any(COMPONENT.search(a) for a in e["alt"]):
+            e = {**e, "alt": [a for a in e["alt"] if len(owners[a.lower()]) == 1 or COMPONENT.search(a)]}
+        out.append(e)
+    return out
+
+
 def build_named_stars(refresh: bool) -> dict:
     out = RAW / "named-stars"
     src = out / "source"
@@ -320,6 +341,7 @@ def build_named_stars(refresh: bool) -> dict:
                                             "SIMBAD plx") if r.dist_method else "no distance"),
                         "mag_band": r.mag_band, "dist_method": r.dist_method, "con": r.con,
                         **({"flag": "component not in SIMBAD: position/distance of the primary"} if r.via_primary else {})})
+    entries = drop_shared_component_ids(entries)
     size = write_catalog_json(CATS / "named-stars.json", entries)
     pq_df = df.assign(id=["Gaia DR3 " + g if g else ("HIP " + h if h else "WGSN " + n)
                           for g, h, n in zip(df["gaia_dr3"].fillna(""), df["hip"].fillna(""), df["name"])],

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { blackHolesFrom } from '../src/blackhole/catalog';
 import { G0, schwarzschildRadiusM, tidalAccel, timeDilation } from '../src/blackhole/physics';
-import type { CatalogEntry } from '../src/data/manifest';
+import { catalogKey, type CatalogEntry } from '../src/data/manifest';
 import { DICTS, LANGS, setLang } from '../src/i18n';
 import en from '../src/tour/narrative/en.json';
 import ru from '../src/tour/narrative/ru.json';
@@ -49,6 +49,28 @@ describe('narrative tours: data', () => {
     }
   });
 
+  it('every named star survives the duplicate check of the viewer (catalogKey keeps Greek letters)', () => {
+    const stars = JSON.parse(readFileSync(resolve(CAT, 'named-stars.json'), 'utf8')) as CatalogEntry[];
+    const seen = new Set<string>();
+    const lost: string[] = [];
+    for (const e of stars) {
+      const keys = names(e).map(catalogKey).filter(Boolean);
+      if (keys.some((k) => seen.has(k))) lost.push(e.name);
+      else keys.forEach((k) => seen.add(k));
+    }
+    expect(lost).toEqual([]);
+    expect(catalogKey('α Lyr')).not.toBe(catalogKey('β Lyr'));
+  });
+
+  it('no two named stars share a name or alias (the viewer keeps only the first: Siwarha hid Betelgeuse)', () => {
+    const stars = JSON.parse(readFileSync(resolve(CAT, 'named-stars.json'), 'utf8')) as CatalogEntry[];
+    const seen = new Map<string, string>();
+    for (const e of stars) for (const n of new Set(names(e).map((x) => x.toLowerCase()))) {
+      expect(seen.get(n) ?? e.name, `${n}: ${seen.get(n)} / ${e.name}`).toBe(e.name);
+      seen.set(n, e.name);
+    }
+  });
+
   it('every Solar System target exists (planet features, probes, the Sun, comets)', () => {
     const feats = JSON.parse(readFileSync(resolve(CAT, 'planet-features.json'), 'utf8')) as CatalogEntry[];
     const craft = JSON.parse(readFileSync(resolve(CAT, 'spacecraft.json'), 'utf8')) as CatalogEntry[];
@@ -68,6 +90,13 @@ describe('narrative tours: data', () => {
 
   it('every hole of a distance in r_s, a display option or a caption number is a catalogued black hole with a mass', () => {
     for (const { b } of allBeats) for (const h of beatHoles(b)) expect(hole(h), h).toBeTruthy();
+  });
+
+  it('every "Learn more" article exists in uz, en and ru', () => {
+    for (const t of TOURS) for (const b of t.beats) {
+      if (!b.doc) continue;
+      for (const l of LANGS) expect(existsSync(resolve(__dirname, `../public/docs/${l}/${b.doc}.md`)), `${l}/${b.doc}`).toBe(true);
+    }
   });
 
   it('is serialisable plain data', () => {
