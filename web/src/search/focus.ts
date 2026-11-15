@@ -51,6 +51,8 @@ const beat = (id: string): NamedView => {
 };
 
 /** where to look when a link turns a layer on (`#layer=<id>`) */
+const DEEP_FOR_FLOWS = ['galaxies-desi', 'galaxies-sdss', 'galaxies-6dfgs', 'galaxies-2dfgrs', 'gw-volumes'];
+
 export const LAYER_VIEWS: Record<string, NamedView> = {
   'stars-gaia': beat('neighbourhood'),
   'synthetic-stars': beat('neighbourhood'),
@@ -88,8 +90,9 @@ export const LAYER_VIEWS: Record<string, NamedView> = {
   neutrinos: { target: { sun: true }, dist: 1, pitchDeg: 10 },
   // --- Cosmography hook: the supergalactic plane from +SGZ; groups at Local Volume to Virgo scale
   'sg-grid': NAMED_VIEWS.supergalactic,
-  'cf4-flow': NAMED_VIEWS.supergalactic,
-  'cf4-density': NAMED_VIEWS.supergalactic,
+  // the deep surveys and the GW volumes cover the flows at this scale; 2MRS stays as the local structure
+  'cf4-flow': { ...NAMED_VIEWS.supergalactic, hide: DEEP_FOR_FLOWS },
+  'cf4-density': { ...NAMED_VIEWS.supergalactic, hide: DEEP_FOR_FLOWS },
   'groups-2mrs': { target: { sun: true }, dist: 6e7, pitchDeg: 30 },
 };
 

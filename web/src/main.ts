@@ -1876,6 +1876,7 @@ export class App {
   private flyToNamedView(v: NamedView, title: () => string) {
     this.stopTour(false);
     for (const l of v.show ?? []) if (this.layerVisibility()[l] === false) this.setLayerVisible(l, true);
+    for (const l of v.hide ?? []) if (this.layerVisibility()[l]) this.setLayerVisible(l, false);
     const ctx = this.tourContext();
     const focus = resolveTarget(v.target, ctx);
     const dist = typeof v.dist === 'number' ? v.dist : v.dist.galaxyEdge * ctx.galaxyEdgePc();
