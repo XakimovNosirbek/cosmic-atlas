@@ -15,7 +15,10 @@ number on screen comes with the catalogue it came from.
 ## What you can do
 
 - **Fly across 19 orders of magnitude** in one continuous scene, from planet surfaces (10⁷ m) to
-  billions of light-years (10²⁶ m). Scroll to zoom, drag to turn, or take the guided scale tour.
+  billions of light-years (10²⁶ m). Scroll to zoom and drag to turn.
+- **Take a guided tour** with narration in Uzbek, English or Russian: black holes (circle one,
+  watch the clocks drift apart, fall towards the horizon), the Milky Way, the life of a star, the
+  universe out to the CMB, and the Solar System, plus the scale tour.
 - **Search for anything**: a planet, a star, a galaxy, a black hole or an exoplanet, or type sky
   coordinates (`83.82 -5.39`, `05h35m17s -05d23m28s`, `l=209 b=-19`). The camera flies there.
 - **Click any object** for its distance, size and other facts, with the source and links to
