@@ -236,6 +236,26 @@ Voxel (i, j, k) is the average over origin + [i, i+1) × voxel (x fastest, then 
 sits at the cell centre, so a GPU linear sampler at normalised coordinate (x − origin) / (dims × voxel)
 reads it exactly (`web/src/dust/grid.ts`, unit-tested). Outside r = 1248 pc the field is 0 (no data).
 
+### 4d. Cosmography (`layers.json` types `sg-grid`, `cf4-density`, `cf4-flow`, `galaxy-groups`; `scripts/build_cosmography.py`)
+
+`data/tiles/cosmography/` holds the CF4++ grids in **supergalactic axes and h⁻¹ Mpc**, not in the §1
+frame: the viewer (`web/src/cosmography/data.ts`) applies one transform to all of them, the
+GAL_TO_SG rotation (astropy `Supergalactic`, unit-tested) and the map scale `meta.toMap.pcPerUnit`
+= 10⁶ / 0.6766 pc per h⁻¹ Mpc (Planck18 h, the scale of the redshift layers). CF4's own zero point
+(H0 = 75.0, Courtois et al. 2023) is kept as `meta.scale.cf4OverMap` = 0.902 and shown on the cards,
+never used for drawing. `meta.json` and `PROVENANCE.json` are tracked; the binaries (6.8 MB) are rebuilt.
+
+| file | layout |
+|---|---|
+| `density_rg8.bin` | 128³ RG8, x (SGX) fastest: R = δ, G = posterior std, both linear codes (`meta.density`); voxel i spans −500 + [i, i+1) × 7.8125 h⁻¹ Mpc |
+| `basins_u8.bin` | 128³ uint8 basin of attraction (Dupuy & Courtois 2023, CF4 ungrouped), 0 = none, names in `meta.basins.names` |
+| `streams.bin` | float32 xyz per vertex (SG h⁻¹ Mpc), then per line uint32 first vertex, uint16 count, uint8 seed basin, uint8 end basin |
+
+`data/tiles/catalogs/cosmography.json` (superclusters = basins at their centroid, attractors, the Vela
+supercluster, named clusters with a `nest` id) and `groups-2mrs.json` (column table `fields`/`rows` plus
+`members` per row: PGC, name if known, Ks, heliocentric cz) are tracked. Group distances are the Planck18
+comoving distance of the members' median heliocentric cz, as the 2MRS layer places its galaxies.
+
 ### 4c. Solar System extra layers (`layers.json` types `small-bodies` and `satellites`)
 
 Not octree tiles: the positions depend on the simulation time, so the files hold orbits.
