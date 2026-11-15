@@ -15,6 +15,7 @@
  *                                                   (−1e8 … 1e8, solar/epoch.ts); absent = now
  *   &focus=<url-encoded name>                       one-shot: fly to a named object or view, then dropped
  *   &layer=<layerId>                                one-shot: turn a layer on and fly to a view of it, then dropped
+ *   &story=<base64url JSON>                         one-shot: play a list of saved views (state/states.ts), then dropped
  *
  * skymap encodes survey stars by record index, which breaks on every re-bake; ids survive rebuilds.
  */
@@ -53,6 +54,8 @@ export interface HashState {
   focus?: string;
   /** one-shot request to show a layer (docs `#layer=` links); never written back */
   layer?: string;
+  /** one-shot: a story of saved views to play (state/states.ts encodeStory); never written back */
+  story?: string;
 }
 
 const num = (x: number, p = 9) => String(+x.toPrecision(p));
@@ -118,6 +121,8 @@ export function parseHash(hash: string): HashState {
       if (Number.isFinite(v) && v !== 0 && Math.abs(v) <= 1e8) out.epochYr = v;
     } else if (key === 'doc') {
       if (/^[a-z0-9][a-z0-9-]{0,63}$/.test(val)) out.doc = val;
+    } else if (key === 'story') {
+      if (/^[A-Za-z0-9_-]{1,16000}$/.test(val)) out.story = val;
     } else if (key === 'layer') {
       if (/^[A-Za-z0-9_.-]{1,64}$/.test(val)) out.layer = val;
     } else if (key === 'focus') {

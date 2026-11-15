@@ -293,6 +293,24 @@ body.has-info .stats { top: auto; bottom: 168px; }
 .help .fine { line-height: 1.55; }
 .help a { color: var(--brass-bright); }
 
+/* ---------- saved views (ui/states.ts) ---------- */
+.states { width: min(460px, calc(100vw - 32px)); }
+.states .st-save { display: flex; gap: 8px; margin: 14px 0 10px; text-align: left; }
+.states .st-save input { flex: 1; min-width: 0; font: inherit; color: var(--ink); background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--hairline-strong); border-radius: 8px; padding: 6px 10px; }
+.states .st-list { list-style: decimal; margin: 0; padding-left: 22px; max-height: 40vh; overflow: auto; }
+.states .st-list li { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.states .st-list li::marker { color: var(--ink-dim); }
+.states .st-go { flex: 1; min-width: 0; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; padding: 4px 0;
+  cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.states .st-go:hover, .states .st-go:focus-visible { color: var(--brass-bright); }
+.states .st-meta { white-space: nowrap; }
+.states .st-icon { font: inherit; font-size: 12.5px; color: var(--brass); background: none; border: 1px solid var(--hairline-strong);
+  border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.states .st-icon:hover { background: rgba(201, 166, 107, 0.1); }
+.states .st-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+.states .st-actions button:disabled { opacity: 0.45; cursor: default; }
+
 /* ---------- docs reader: a field guide that slides over the map ---------- */
 .docs {
   --read: rgba(9, 13, 21, 0.97);

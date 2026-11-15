@@ -58,8 +58,8 @@ export function epochParts(myr: number): { sign: -1 | 0 | 1; value: number; unit
 
 /** slider tick marks: Δt in years */
 export const EPOCH_TICKS = [-1e8, -1e7, -1e6, -1e5, -1e4, -1e3, 0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8];
-/** ticks that get a text label (every second decade; the track itself is uniform per decade) */
-export const EPOCH_TICK_LABELS = new Set([-1e8, -1e6, -1e4, 0, 1e4, 1e6, 1e8]);
+/** ticks that get a text label (every third decade, so they fit a phone-width track) */
+export const EPOCH_TICK_LABELS = new Set([-1e8, -1e5, 0, 1e5, 1e8]);
 
 /**
  * Stars without a measured radial velocity move only across the sky. Their unknown line-of-sight

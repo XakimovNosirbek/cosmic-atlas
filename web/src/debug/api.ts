@@ -8,6 +8,7 @@ import type { View } from '../nav/controller';
 import { radecDistToGal, type Vec3 } from '../math/frames';
 import { readExtRecord } from '../tiles/format';
 import { gpuDisplacement, gpuPosition } from '../orbits/integrate';
+import { encodeStory } from '../state/states';
 import { searchCatalog } from '../data/resolve';
 import { flyTargetForLatLon } from '../solar';
 import type { Satellites } from '../solar/satellites';
@@ -260,6 +261,19 @@ export function installDebugApi(app: App) {
       }
       ms.sort((a, b) => a - b);
       return { medianMs: ms[Math.floor(ms.length / 2)], minMs: ms[0], points, steps: app.streamer.track?.n ?? 0 };
+    },
+    /** saved views (state/states.ts): save the current view, list, open the dialog, play as a story */
+    states: {
+      save: (name: string) => app.statesPanel.save(name),
+      list: () => app.statesPanel.states,
+      clear: () => {
+        for (let i = app.statesPanel.states.length - 1; i >= 0; i--) app.statesPanel.remove(i);
+      },
+      open: () => app.statesPanel.open(),
+      play: () => app.playStory(app.statesPanel.states),
+      hash: () => app.hashNow(),
+      /** '#story=…' for the saved list */
+      storyHash: () => `#story=${encodeStory(app.statesPanel.states)}`,
     },
     /** leapfrog steps the shader runs per point at this epoch (orbits/gpu.ts) */
     orbitSteps: () => app.streamer.track?.n ?? 0,
