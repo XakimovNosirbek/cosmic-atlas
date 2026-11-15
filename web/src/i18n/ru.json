@@ -52,6 +52,7 @@
   "tag.lite": "облегчённый",
   "tag.model": "модель",
   "layer.stars-gaia": "Звёзды Gaia DR3",
+  "layer.stars-bright": "Яркие звёзды (Hipparcos)",
   "layer.galaxies-desi": "Галактики DESI",
   "layer.galaxies-2mrs": "2MASS Redshift Survey",
   "layer.galaxies-cf4": "Галактики Cosmicflows-4",
@@ -679,5 +680,6 @@
   "credit.local-volume": "UNGC, Karachentsev и др. 2013",
   "credit.milky-way-model": "Рукава: Reid и др. 2019, ApJ 885, 131; R0 = 8,275 кпк, GRAVITY 2021. Это модель, а не данные.",
   "credit.gaia-sky": "Суммарный поток Gaia DR3 (ESA/Gaia/DPAC)",
-  "credit.star-clusters": "Hunt и Reffert 2023, 2024; Baumgardt и Vasiliev 2021. Яркость по массе, цвет по возрасту (только для отображения)"
+  "credit.star-clusters": "Hunt и Reffert 2023, 2024; Baumgardt и Vasiliev 2021. Яркость по массе, цвет по возрасту (только для отображения)",
+  "credit.stars-bright": "Новая обработка Hipparcos (van Leeuwen 2007, I/311/hip2): 309 звёзд в пределах 1 кпк, слишком ярких для Gaia DR3"
 }

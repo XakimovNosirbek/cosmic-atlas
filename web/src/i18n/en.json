@@ -52,6 +52,7 @@
   "tag.lite": "lite",
   "tag.model": "model",
   "layer.stars-gaia": "Gaia DR3 stars",
+  "layer.stars-bright": "Bright stars (Hipparcos)",
   "layer.galaxies-desi": "DESI galaxies",
   "layer.galaxies-2mrs": "2MASS Redshift Survey",
   "layer.galaxies-cf4": "Cosmicflows-4 galaxies",
@@ -679,5 +680,6 @@
   "credit.local-volume": "UNGC, Karachentsev et al. 2013",
   "credit.milky-way-model": "Arms: Reid et al. 2019, ApJ 885, 131; R0 = 8.275 kpc, GRAVITY 2021. A model, not data.",
   "credit.gaia-sky": "Gaia DR3 integrated flux (ESA/Gaia/DPAC)",
-  "credit.star-clusters": "Hunt & Reffert 2023, 2024; Baumgardt & Vasiliev 2021. Brightness from mass, colour from age (display only)"
+  "credit.star-clusters": "Hunt & Reffert 2023, 2024; Baumgardt & Vasiliev 2021. Brightness from mass, colour from age (display only)",
+  "credit.stars-bright": "Hipparcos new reduction (van Leeuwen 2007, I/311/hip2): the 309 stars too bright for Gaia DR3 within 1 kpc"
 }

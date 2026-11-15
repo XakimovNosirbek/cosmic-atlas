@@ -52,6 +52,7 @@
   "tag.lite": "yengil",
   "tag.model": "model",
   "layer.stars-gaia": "Gaia DR3 yulduzlari",
+  "layer.stars-bright": "Yorqin yulduzlar (Hipparcos)",
   "layer.galaxies-desi": "DESI galaktikalari",
   "layer.galaxies-2mrs": "2MASS Redshift Survey",
   "layer.galaxies-cf4": "Cosmicflows-4 galaktikalari",
@@ -679,5 +680,6 @@
   "credit.local-volume": "UNGC, Karachentsev va boshq. 2013",
   "credit.milky-way-model": "Qoʻllar: Reid va boshq. 2019, ApJ 885, 131; R0 = 8,275 kpk, GRAVITY 2021. Bu model, maʼlumot emas.",
   "credit.gaia-sky": "Gaia DR3 yigʻma yorugʻlik oqimi (ESA/Gaia/DPAC)",
-  "credit.star-clusters": "Hunt va Reffert 2023, 2024; Baumgardt va Vasiliev 2021. Yorqinlik massadan, rang yoshdan (faqat koʻrinish uchun)"
+  "credit.star-clusters": "Hunt va Reffert 2023, 2024; Baumgardt va Vasiliev 2021. Yorqinlik massadan, rang yoshdan (faqat koʻrinish uchun)",
+  "credit.stars-bright": "Hipparcos yangi qayta ishlovi (van Leeuwen 2007, I/311/hip2): 1 kpk ichidagi Gaia DR3 uchun juda yorqin 309 ta yulduz"
 }
