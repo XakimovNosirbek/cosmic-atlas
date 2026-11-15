@@ -65,6 +65,12 @@ export class ToursMenu {
     this.el.querySelector('h2')!.textContent = t('tours.menu');
     const list = this.el.querySelector('.tm-list')!;
     let items: MenuItem[];
+    // shown until the list arrives (the tour library is a separate download)
+    const loading = document.createElement('li');
+    loading.className = 'tm-loading';
+    loading.textContent = t('tours.loading');
+    list.replaceChildren(loading);
+    list.setAttribute('aria-busy', 'true');
     try {
       items = await this.items();
     } catch (err) {
@@ -83,8 +89,10 @@ export class ToursMenu {
       b.addEventListener('click', () => window.location.reload());
       li.append(msg, b);
       list.append(li);
+      list.removeAttribute('aria-busy');
       return;
     }
+    list.removeAttribute('aria-busy');
     list.innerHTML = '';
     for (const it of items) {
       const li = document.createElement('li');

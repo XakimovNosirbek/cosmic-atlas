@@ -2085,14 +2085,30 @@ export class App {
 
   /** a tour of the menu by id (also the debug API) */
   async startTour(id: string) {
-    const { TOURS } = await import('./tour/library');
+    const { TOURS } = await this.tourLibrary();
     const tour = TOURS.find((x) => x.id === id);
     if (tour) await this.runTour(tour);
     return !!tour;
   }
 
-  /** the runner, its caption player and the top-bar menu (the tour library is fetched on the first open) */
+  private tourLib: Promise<typeof import('./tour/library')> | null = null;
+
+  /** the tour library chunk, fetched once; a failed fetch is forgotten so the next open retries */
+  private tourLibrary() {
+    this.tourLib ??= import('./tour/library').then((m) => {
+      // after vite:preloadError the import resolves to undefined instead of rejecting
+      if (!m?.TOURS) throw new Error('tour library chunk did not load');
+      return m;
+    });
+    this.tourLib.catch(() => (this.tourLib = null));
+    return this.tourLib;
+  }
+
+  /** the runner, its caption player and the top-bar menu */
   private initTours() {
+    // fetch the small tour library now, not on the first click: on a slow link it would otherwise
+    // queue behind the star tiles and the menu would sit empty for seconds
+    void this.tourLibrary().catch(() => {});
     const app = this;
     const host: TourHost = {
       nav: this.nav,
@@ -2164,7 +2180,7 @@ export class App {
     this.tours = new TourRunner(host, new TourPlayer());
     this.toursMenu = new ToursMenu($<HTMLButtonElement>('tours-btn'));
     this.toursMenu.items = async () => {
-      const { TOURS } = await import('./tour/library');
+      const { TOURS } = await this.tourLibrary();
       const ctx = this.tourContext();
       return TOURS.map((x): MenuItem => ({
         id: x.id, title: t(x.label), summary: x.summary ? t(x.summary) : '',
