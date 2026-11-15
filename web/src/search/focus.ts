@@ -59,6 +59,13 @@ export const LAYER_VIEWS: Record<string, NamedView> = {
   // 2MRS reaches cz ≈ 9,000 km/s (~130 Mpc); CF4 is similar in depth
   'galaxies-2mrs': { target: { sun: true }, dist: 4e8, pitchDeg: 30 },
   'galaxies-cf4': { target: { sun: true }, dist: 4e8, pitchDeg: 30 },
+  // SDSS main sample + BOSS reach z ~ 0.7 (~2.6 Gpc), QSOs far beyond; 6dFGS z < 0.15; 2dFGRS z < 0.3
+  'galaxies-sdss': { target: { sun: true }, dist: 6e9, pitchDeg: 20 },
+  'galaxies-6dfgs': { target: { sun: true }, dist: 8e8, pitchDeg: 30 },
+  'galaxies-2dfgrs': { target: { sun: true }, dist: 1.8e9, pitchDeg: 30 },
+  // galaxies-euclid (not built yet, see docs/open-data-inventory.md): a pencil beam, the Euclid Deep Field
+  // North (RA 269.7°, Dec +66.0°) at z = 1.3 (Planck18 D_C 4.08 Gpc) ->
+  // { target: { xyz: [-3.548e8, 3.5187e9, 2.0351e9] }, dist: 2.5e9, pitchDeg: 20 }
   'local-group': NAMED_VIEWS['local-group'],
   'local-volume': { target: { sun: true }, dist: 2.5e7, pitchDeg: 30 },
   'milky-way-model': NAMED_VIEWS['milky-way'],

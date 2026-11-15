@@ -541,7 +541,7 @@ export class App {
       if (L.status === 'pending') {
         row({
           id: L.cfg.id, title: title(L.cfg), swatch: L.kind, tag: L.cfg.dev ? ['synthetic', t('tag.synthetic')] : undefined,
-          meta: `${t('layers.loading')}${L.cfg.credit ? `, ${L.cfg.credit}` : ''}`,
+          meta: `${t('layers.loading')}${layerCredit(L.cfg) ? `, ${layerCredit(L.cfg)}` : ''}`,
           checked: L.visible, opacity: L.opacity, onOpacity: (v) => (L.opacity = v), loading: true,
         });
         continue;
@@ -561,7 +561,7 @@ export class App {
         title: title(L.cfg),
         swatch: L.kind,
         tag: L.cfg.dev ? ['synthetic', t('tag.synthetic')] : L.cfg.preview ? ['preview', t('tag.preview')] : m.lite ? ['lite', t('tag.lite')] : undefined,
-        meta: `${metaText}${L.cfg.credit ? `, ${L.cfg.credit}` : ''}`,
+        meta: `${metaText}${layerCredit(L.cfg) ? `, ${layerCredit(L.cfg)}` : ''}`,
         checked: L.visible,
         opacity: L.opacity,
         onOpacity: (v) => (L.opacity = v),
@@ -570,14 +570,14 @@ export class App {
     if (this.mwCfg) {
       row({
         id: this.mwCfg.id, title: title(this.mwCfg), swatch: 'model', tag: ['model', t('tag.model')],
-        meta: this.mwCfg.credit ?? t('layers.mwCredit'), checked: this.mw.visible, opacity: this.mw.opacity,
+        meta: layerCredit(this.mwCfg) ?? t('layers.mwCredit'), checked: this.mw.visible, opacity: this.mw.opacity,
         onOpacity: (v) => (this.mw.opacity = v),
       });
     }
     if (this.skyCfg) {
       row({
         id: this.skyCfg.id, title: title(this.skyCfg), swatch: 'sky',
-        meta: this.msg.skyCredit(this.skyCfg.credit ?? ''), checked: this.sky.visible, opacity: this.sky.opacity,
+        meta: this.msg.skyCredit(layerCredit(this.skyCfg) ?? ''), checked: this.sky.visible, opacity: this.sky.opacity,
         onOpacity: (v) => (this.sky.opacity = v),
       });
     }
@@ -639,9 +639,9 @@ export class App {
     $('layer-missing').textContent = missing.length ? t('layers.notBuilt', { list: missing.join(', ') }) : '';
     $('credits').innerHTML = '';
     const credits = [
-      ...this.layers.filter((L) => L.status === 'ready' && !L.superseded).map((L) => `${title(L.cfg)}: ${L.cfg.credit ?? (L.cfg.dev ? t('layers.syntheticCredit') : L.meta?.title ?? '')}`),
-      this.mwCfg ? `${title(this.mwCfg)}: ${this.mwCfg.credit}` : '',
-      this.skyCfg && !this.msg.bg ? `${title(this.skyCfg)}: ${this.skyCfg.credit}` : '',
+      ...this.layers.filter((L) => L.status === 'ready' && !L.superseded).map((L) => `${title(L.cfg)}: ${layerCredit(L.cfg) ?? (L.cfg.dev ? t('layers.syntheticCredit') : L.meta?.title ?? '')}`),
+      this.mwCfg ? `${title(this.mwCfg)}: ${layerCredit(this.mwCfg)}` : '',
+      this.skyCfg && !this.msg.bg ? `${title(this.skyCfg)}: ${layerCredit(this.skyCfg)}` : '',
       this.gwCfg && this.gw.events.length ? `${title(this.gwCfg)}: ${this.gwCfg.credit}` : '', // --- GW hook
       dc && this.dust.status === 'ready' ? `${title(dc)}: ${dc.credit}` : '', // --- Dust hook
       ...this.msg.credits(), // --- Messengers hook: every sky background, CMB, FRB, neutrino survey
@@ -1919,7 +1919,7 @@ export class App {
     const cfg = L?.cfg ?? this.msg.config(id) ?? this.manifest.layers.find((c) => c.id === id)
       ?? (this.mwCfg?.id === id ? this.mwCfg : this.skyCfg); // --- Messengers hook
     const v = LAYER_VIEWS[id];
-    if (v && cfg) this.flyToNamedView({ ...v, ref: cfg.credit }, () => layerTitle(cfg));
+    if (v && cfg) this.flyToNamedView({ ...v, ref: layerCredit(cfg) }, () => layerTitle(cfg));
     this.scheduleHash();
     return true;
   }
@@ -2336,6 +2336,11 @@ function copyButton(text: string, label: string): HTMLButtonElement {
 /** a layer's title in the current language (layer.<id>), else the manifest's */
 function layerTitle(c: LayerConfig): string {
   return tOr(`layer.${c.id}`, c.title);
+}
+
+/** a layer's credit line in the current language (credit.<id>), else the manifest's; undefined if none */
+function layerCredit(c: LayerConfig): string | undefined {
+  return c.credit === undefined ? undefined : tOr(`credit.${c.id}`, c.credit);
 }
 
 /** catalogue names stay as catalogued, except the Sun and the CMB shell (--- Messengers hook), which are translated (contract §1) */
