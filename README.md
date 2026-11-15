@@ -16,8 +16,8 @@ number on screen comes with the catalogue it came from.
 
 - **Fly across 19 orders of magnitude** in one continuous scene, from planet surfaces (10⁷ m) to
   billions of light-years (10²⁶ m). Scroll to zoom, drag to turn, or take the guided scale tour.
-- **Search for anything**: a planet, a star, a galaxy, a black hole or an exoplanet. The camera
-  flies there.
+- **Search for anything**: a planet, a star, a galaxy, a black hole or an exoplanet, or type sky
+  coordinates (`83.82 -5.39`, `05h35m17s -05d23m28s`, `l=209 b=-19`). The camera flies there.
 - **Click any object** for its distance, size and other facts, with the source and links to
   SIMBAD, Gaia and the DESI viewer.
 - **See the uncertainty.** Distances are measurements, and the atlas shows each object's 16–84 %
@@ -26,14 +26,16 @@ number on screen comes with the catalogue it came from.
   asteroids, comets and 16,896 satellites follow their real orbits.
 - **Land on the Moon and Mars.** NASA surface imagery streams in as you descend, with named
   craters, valleys and 21 landing sites.
-- **Move the stars in time**, up to a million years either way, along their measured Gaia
-  velocities.
+- **Move the stars in time**, up to 100 million years either way, along their Galactic orbits
+  (Gaia velocities in the MWPotential2014 model, checked against galpy).
 - **Show me**: fly from the cosmic web down to the place where you are. Your location stays in
   the browser and is never sent or stored.
-- **Visit a black hole.** The light around Sgr A*, M87* and Gaia BH3 is ray-traced in general
-  relativity, and a live readout shows how time slows and tides grow as you approach.
+- **Fly into a black hole.** One button takes you to 25 Schwarzschild radii of Sgr A*, M87* or
+  Gaia BH3. The light around it is ray-traced in general relativity, and a live readout shows how
+  time slows and tides grow as you go closer.
 - **Read about anything.** Every object links to a short article, in Uzbek, English or Russian.
-- **Share a view.** The link names the object you are looking at, e.g. `#at=Saturn`.
+- **Share a view.** The link names the object you are looking at, e.g. `#at=Saturn`. Save views
+  and play them back as a short story.
 
 ## What's in it
 
@@ -52,6 +54,8 @@ number on screen comes with the catalogue it came from.
 | Nearby galaxies | Local Group, Local Volume, 1,016 with real shapes and images | McConnachie, UNGC, HyperLEDA, DSS2 |
 | Distant galaxies | 15,140,002 galaxies and quasars | DESI DR1 |
 | All-sky galaxies | 43,463 + 55,877 | 2MRS, Cosmicflows-4 |
+| More redshift surveys | 2,313,525 + 86,804 + 146,845, only objects DESI does not have | SDSS DR17, 6dFGS, 2dFGRS |
+| Cosmic flows | Laniakea and 8 more basins, 2,587 streamlines, 6,201 galaxy groups | Cosmicflows-4++ (Courtois et al. 2025), Dupuy & Courtois 2023, Tully 2015 |
 | Messages to the stars | Arecibo 1974 and 30 more, plus the Wow! signal | cited per entry |
 | Interstellar dust | 3D dust clouds within 1.25 kpc (6 pc grid), dark in front of the stars, a glow from outside | Edenhofer et al. 2024 |
 | Gravitational waves | 282 merger events with their 90 % localisation volumes | LIGO/Virgo/KAGRA GWTC via GWOSC |
@@ -76,6 +80,8 @@ number on screen comes with the catalogue it came from.
 | **The asteroid belt** and Jupiter's two Trojan swarms | **Earth** inside its shell of satellites |
 | ![Interstellar dust within 1.25 kpc seen from outside](docs/images/dust.jpg) | ![Star clusters along the Milky Way](docs/images/star-clusters.jpg) |
 | **3D dust** around the Sun, seen from 2.6 kpc | **Star clusters** in the Milky Way's disk |
+| ![Streamlines of the Cosmicflows-4 velocity field coloured by basin, Laniakea in the middle](docs/images/laniakea.jpg) | ![DESI, SDSS, 6dFGS and 2dFGRS galaxies together in a 50 Mpc slab](docs/images/surveys.jpg) |
+| **Laniakea**: where nearby galaxies flow, by basin | **Five redshift surveys** in one 50 Mpc slab |
 
 ![Left: Andromeda in the atlas, seen from the Sun. Right: an independent reprojection of the DSS image](docs/images/m31-vs-dss.jpg)
 *Accuracy check: Andromeda in the atlas (left) next to an independent reprojection of the
@@ -122,7 +128,7 @@ More detail: [web/README.md](web/README.md) (the viewer), [docs/prior-work.md](d
 ## Credits
 
 - **Data:** ESA/Gaia/DPAC, the DESI Collaboration, NASA Exoplanet Archive, ATNF, JPL, 2MRS,
-  Cosmicflows-4, HyperLEDA, the IAU Minor Planet Center, CelesTrak, NASA Trek, LIGO/Virgo/KAGRA,
+  Cosmicflows-4, SDSS, 6dFGS, 2dFGRS, HyperLEDA, the IAU Minor Planet Center, CelesTrak, NASA Trek, LIGO/Virgo/KAGRA,
   CHIME/FRB, IceCube, KM3NeT, eROSITA-DE, Planck, CDS (SIMBAD, VizieR, HiPS), OpenNGC (CC BY-SA 4.0; our derived NGC
   catalogues carry the same licence), and every paper cited in the
   catalogues.

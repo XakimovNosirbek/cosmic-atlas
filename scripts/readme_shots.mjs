@@ -23,6 +23,7 @@ const SHOTS = [
   { name: 'dust', hash: '#v=0,0,0,2600,20,32&l=~neutrinos', wait: 22000, crop: [290, 40, 860, 820] },
   { name: 'star-clusters', hash: '#layer=star-clusters&l=~neutrinos', wait: 16000, crop: [290, 40, 860, 820] },
   { name: 'cmb', hash: '#layer=cmb', wait: 20000, crop: [290, 40, 860, 820] },
+  { name: 'laniakea', hash: '#layer=cf4-flow', wait: 16000, crop: [290, 40, 860, 820] },
   { name: 'mars-gale', eval: () => window.__atlas.solar.surface.lookDown('mars', -5.4, 137.8, 400), wait: 20000, crop: [290, 40, 860, 820] },
   { name: 'moon-tycho', eval: () => { window.__atlas.solar.setTime('2026-11-24T12:00:00Z'); window.__atlas.solar.pause(true); window.__atlas.solar.surface.lookDown('moon', -43.31, -11.36, 300); }, wait: 15000, crop: [290, 40, 860, 820] },
 ];
