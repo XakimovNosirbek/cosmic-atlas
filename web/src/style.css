@@ -147,6 +147,19 @@ select.sky-bg { display: block; margin: 6px 0 0 20px; width: calc(100% - 20px); 
 @keyframes layer-wait { to { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .layer.loading .meta { animation: none; } }
 .layer input[type='range'] { margin: 6px 0 0 20px; width: calc(100% - 20px); }
+/* compact rows: credit on one line (full text on hover / focus and as a tooltip), the opacity slider
+   only for the row in use, so a dozen layers fit without scrolling */
+.layer { padding: 6px 0; }
+.layer .meta { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.layer:hover .meta, .layer:focus-within .meta { white-space: normal; }
+@media (hover: hover) and (pointer: fine) {
+  .layer input[type='range'] { display: none; }
+  .layer:hover input[type='range']:not([hidden]), .layer:focus-within input[type='range']:not([hidden]) { display: block; }
+}
+.layer-group { list-style: none; margin: 10px 0 2px; padding: 8px 0 0; border-top: 1px solid var(--hairline-strong);
+  font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--brass); }
+.layer-group:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.layer-group + .layer { border-top: 0; }
 
 .toggle { position: relative; width: 34px; height: 20px; flex: none; appearance: none; -webkit-appearance: none; margin: 0;
   background: #1b2433; border: 1px solid var(--hairline-strong); border-radius: 999px; cursor: pointer; transition: background 0.15s; }
@@ -179,6 +192,14 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
 .kind { margin: 0 0 2px; color: var(--brass); font-size: 12.5px; }
 #info-title { font: 500 20px/1.2 var(--serif); word-break: break-word; }
 #info-title.galaxy { font-style: italic; }
+/* copy buttons (title id, coordinates): small, quiet until hovered, confirm with a tick colour */
+.copy-btn { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: 6px;
+  padding: 0; vertical-align: middle; border: 1px solid transparent; border-radius: 6px; background: none; color: var(--ink-dim); cursor: pointer; }
+.copy-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.copy-btn:hover, .copy-btn:focus-visible { color: var(--brass-bright); border-color: var(--hairline-strong); }
+.copy-btn.done { color: #8fd98f; }
+#info-title .copy-btn { font-style: normal; }
+@media (pointer: coarse) { .copy-btn { width: 36px; height: 36px; } }
 /* labels may wrap (long in ru/uz); values keep the wider column */
 .rows { display: grid; grid-template-columns: fit-content(44%) 1fr; gap: 5px 14px; margin: 14px 0 10px; }
 .rows dt { color: var(--ink-dim); font-size: 13px; }
@@ -420,6 +441,7 @@ body.has-docs .caption { display: none; }
 .timectl.t-moved .t-epoch { color: var(--brass-bright); }
 .timectl .t-note { margin: 0; font-size: 11.5px; line-height: 1.4; color: var(--ink-dim); }
 .timectl.t-moved .t-note { color: var(--ink); }
+.timectl:not(.t-moved) .t-note { display: none; }
 
 /* ---------- small screens ---------- */
 @media (max-width: 900px) {
@@ -456,7 +478,10 @@ body.has-docs .caption { display: none; }
   .docs-article h1 { font-size: 26px; }
   .docs-lede { font-size: 17px; }
   .docs-body { font-size: 16.5px; }
-  .timectl { right: 8px; left: 8px; bottom: 112px; width: auto; padding-left: 10px; }
+  .timectl { right: 8px; left: 8px; bottom: calc(var(--instrument-h) + 8px + 60px); width: auto; padding-left: 10px; }
+  body.has-info .timectl { display: none; }
+  /* narrow track: only −1 Myr, now and +1 Myr; the ±10 kyr ticks collide */
+  .timectl .t-ticks span:nth-child(2), .timectl .t-ticks span:nth-child(4) { display: none; }
   .timectl .t-solar { justify-content: space-between; }
   .timectl .t-date { min-width: 0; font-size: 12px; }
 }

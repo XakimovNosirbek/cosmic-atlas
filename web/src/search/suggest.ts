@@ -60,6 +60,12 @@ export function buildSuggestions(q: string, catalog: CatalogEntry[], limit = 9):
       if (a.score >= 85) out.push({ type: 'kind', entry: a.entry, matched: a.matched, score: a.score, count: -1 });
       continue;
     }
+    // a Solar System body found both as an alias and as its catalogue entry ("Mars" twice): keep the
+    // catalogue row, which shows the distance and opens the card
+    if (a.entry.target.type === 'body') {
+      const names = [...a.entry.names.en, ...a.entry.names.uz, ...a.entry.names.ru].map(fold);
+      if (cats.some((c) => (c.entry as { solar?: unknown }).solar && names.includes(fold(c.entry.name)))) continue;
+    }
     if (a.entry.target.type === 'view') {
       const v = NAMED_VIEWS[a.entry.target.id];
       const names = v && 'catalog' in v.target ? v.target.catalog : [];

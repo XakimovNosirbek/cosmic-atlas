@@ -183,7 +183,7 @@
       "type": "markers",
       "kind": "frb",
       "title": "Fast radio bursts",
-      "visible": true,
+      "visible": false,
       "data": "frb-sky.json",
       "credit": "CHIME/FRB Catalog 2 (CHIME/FRB Collaboration 2026, arXiv:2601.09399); localised FRBs and hosts from the FRBs/FRB repository (BSD-3-Clause)"
     },
@@ -192,7 +192,7 @@
       "type": "markers",
       "kind": "neutrino",
       "title": "High-energy neutrinos",
-      "visible": true,
+      "visible": false,
       "data": "neutrino-sky.json",
       "credit": "IceCat-1 (IceCube Collaboration 2023, ApJS 269, 25; CC0); KM3-230213A (KM3NeT Collaboration 2025, Nature 638, 376)"
     },

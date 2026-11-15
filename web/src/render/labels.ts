@@ -52,7 +52,7 @@ export const SOLAR_KINDS = new Set(['sun', 'planet', 'dwarf_planet', 'moon', 'sp
 
 /** labels per kind family in one view (at 1440 x 900; scaled with sqrt of the viewport area) */
 export const KIND_CAPS: Record<string, number> = {
-  pulsar: 4, snr: 5, nebula: 5, cluster: 5, exoplanet: 4, black_hole: 4, message: 3, seti_signal: 3, frb: 5, neutrino: 3, cmb: 1,
+  pulsar: 4, snr: 5, nebula: 5, cluster: 5, exoplanet: 4, black_hole: 4, message: 1, seti_signal: 1, frb: 5, neutrino: 3, cmb: 1,
   star: 14, wd: 6, galaxy: 14, lg_galaxy: 10, qso: 6, asteroid: 7, comet: 4,
 };
 /** base importance (0..1) per family before brightness / notability */

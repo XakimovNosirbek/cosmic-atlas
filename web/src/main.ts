@@ -24,7 +24,7 @@ import { NAMED_VIEWS, fold, type NamedView } from './search/aliases';
 import { LAYER_VIEWS, resolveFocus } from './search/focus';
 import { buildSuggestions, type BodyProvider, type SuggestItem } from './search/suggest';
 import { NavController, type View } from './nav/controller';
-import { absMagFromLum, galaxyRadiusPc } from './render/brightness';
+import { galaxyRadiusPc } from './render/brightness';
 import { DEFAULT_EXPOSURE, binCounts, exposureFromCounts, smoothExposure, type SamplePoints } from './render/exposure';
 import { DENSITY_SPRITE_PX, SLAB_OFF } from './render/pointMaterial';
 import { LabelLayer, isNotable, type LabelItem } from './render/labels';
@@ -38,6 +38,7 @@ import { PC_PER_KMS_MYR, VEL_Q, closestApproach, findExtId, nodePath, parseRende
 import { NodeState, PointLayer, Streamer, type TileNode } from './tiles/streamer';
 import { SCALE_TOUR, resolveBeat, resolveTarget, type Beat, type Tour, type TourContext } from './tour/tours';
 import { ScaleRail } from './ui/rail';
+import { LAYER_GROUPS, layerGroup } from './ui/layerGroups';
 // --- Solar System hook (web/src/solar): live planets, time control, probes
 import { SOLAR_LABEL_MAX, SolarSystem, TimeBar, flyTargetForLatLon, observerGalacticXyz, solarInfo, tr as solarTr, type SolarEntry } from './solar';
 // --- Black hole hook (web/src/blackhole): lensing post pass, disk, HUD, approach to 1.5 r_s.
@@ -95,6 +96,8 @@ export class App {
   manifest!: Manifest;
   tilesIndex: TilesIndex | null = null;
   tileBase = DEFAULT_TILE_BASE;
+  /** group headings of the layers panel, reused across renders */
+  private layerHeads = new Map<string, HTMLLIElement>();
   exposure = 0;
   frame = 0;
   fps = 0;
@@ -465,7 +468,9 @@ export class App {
         t.textContent = opts.tag[1];
         b.after(t);
       }
-      li.querySelector('.meta')!.textContent = opts.meta;
+      const metaEl = li.querySelector<HTMLElement>('.meta')!;
+      metaEl.textContent = opts.meta;
+      metaEl.title = opts.meta;
       const cb = li.querySelector<HTMLInputElement>('.toggle')!;
       cb.checked = opts.checked;
       const rg = li.querySelector<HTMLInputElement>('input[type=range]')!;
@@ -563,8 +568,24 @@ export class App {
         checked: x.visible, opacity: x.opacity, onOpacity: (v) => (x.opacity = v),
       });
     }
-    for (const li of [...list.children]) if (!want.includes(li as HTMLLIElement)) li.remove();
-    want.forEach((li, i) => {
+    // grouped for scanning: Solar System, stars, galaxies, sky maps and signals (stable within a group)
+    const ordered: HTMLLIElement[] = [];
+    for (const g of LAYER_GROUPS) {
+      const rows = want.filter((li) => layerGroup(li.dataset.id ?? '', li.querySelector('.swatch')?.classList[1] ?? '') === g);
+      if (!rows.length) continue;
+      let head = this.layerHeads.get(g);
+      if (!head) {
+        head = document.createElement('li');
+        head.className = 'layer-group';
+        head.dataset.id = `group:${g}`;
+        head.setAttribute('role', 'presentation');
+        this.layerHeads.set(g, head);
+      }
+      head.textContent = t(`layers.group.${g}`);
+      ordered.push(head, ...rows);
+    }
+    for (const li of [...list.children]) if (!ordered.includes(li as HTMLLIElement)) li.remove();
+    ordered.forEach((li, i) => {
       if (list.children[i] !== li) list.insertBefore(li, list.children[i] ?? null);
     });
     this.msg.decoratePanel(list); // --- Messengers hook: sky background chooser
@@ -1103,7 +1124,6 @@ export class App {
         note: t('cluster.pointNote'), links: c.links, fly: flyC, doc: 'star-cluster' });
       return;
     }
-    const M = absMagFromLum(lum, kind);
     // --- star epoch: velocity (relative to the Sun) and the position at the slider time
     const ep = this.epoch.myr;
     const velAll = L.hasVelocity ? await this.streamer.velocities(n) : null;
@@ -1150,7 +1170,8 @@ export class App {
       if (ext) rows.push([t('row.apparentG'), fmtFixed(ext.mag, 2)], [t('row.bpRp'), isFinite(ext.color) ? fmtFixed(ext.color, 2) : t('common.na')]);
       distRows(t('row.distMedian'));
       if (vel) rows.push(...this.velocityRows(x0, vel, q));
-      rows.push([t('row.brightnessCode'), t('row.renderingProxy', { m: fmtFixed(M, 1) })]);
+      // absolute magnitude from the measured G and the median distance (no extinction correction)
+      if (ext && isFinite(ext.mag) && dist0 > 0) rows.push([t('row.absoluteG'), fmtFixed(ext.mag - 5 * Math.log10(dist0 / 10), 2)]);
     } else {
       if (ext) rows.push([t('row.apparentMag'), fmtFixed(ext.mag, 2)], [t('row.redshift'), fmtFixed(ext.color, 4)]);
       distRows(t('row.comoving'));
@@ -1282,13 +1303,16 @@ export class App {
     ti.textContent = o.title;
     ti.classList.toggle('galaxy', o.italic);
     this.showInfoDoc(o.doc, o.title);
+    ti.append(copyButton(o.title, t('info.copyName', { title: o.title }))); // ids like "Gaia DR3 …" go straight into papers and queries
     const dl = $('info-rows');
     dl.textContent = '';
+    const copyable = new Set([t('row.radec'), t('row.galactic')]);
     for (const [k, v] of o.rows) {
       const dt = document.createElement('dt');
       dt.textContent = k;
       const dd = document.createElement('dd');
       dd.textContent = v;
+      if (copyable.has(k)) dd.append(copyButton(v.replace(/°/g, ''), t('info.copyValue', { what: k })));
       dl.append(dt, dd);
     }
     $('info-note').textContent = o.note;
@@ -2060,6 +2084,28 @@ export class App {
 function smoothstep(a: number, b: number, x: number) {
   const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return k * k * (3 - 2 * k);
+}
+
+/** a small icon button that copies `text` and says so in its tooltip */
+function copyButton(text: string, label: string): HTMLButtonElement {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'copy-btn';
+  b.title = label;
+  b.setAttribute('aria-label', label);
+  b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>';
+  b.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      b.classList.add('done');
+      b.title = t('info.copied');
+      setTimeout(() => { b.classList.remove('done'); b.title = label; }, 1500);
+    } catch {
+      b.title = t('status.copyFailedPlain');
+    }
+  });
+  return b;
 }
 
 /** a layer's title in the current language (layer.<id>), else the manifest's */

@@ -117,6 +117,7 @@ export class TimeBar {
     this.starNow.setAttribute('aria-label', t('time.epoch.reset'));
     el.querySelector('.t-tag')!.textContent = t('time.stars');
     this.slider.setAttribute('aria-label', t('time.epoch.label'));
+    this.slider.title = t('time.starsHint'); // the hint line itself only shows while the stars are moved
     this.ticks.textContent = '';
     for (const yr of EPOCH_TICKS) {
       if (Math.abs(yr) === 1e3 || Math.abs(yr) === 1e5) continue; // labels every 2 decades; the track itself is uniform per decade
