@@ -52,6 +52,8 @@ import { clusterPointCard, gwLinks, gwNote, nearestEntry } from './objects/gw';
 import { DustFeature } from './dust';
 // --- Messengers hook (web/src/messengers): CMB shell, sky background chooser, FRBs, neutrinos
 import { MessengerFeature } from './messengers';
+// --- Cosmography hook (web/src/cosmography): supergalactic grid, CF4++ density + flow, Laniakea basins, 2MRS groups
+import { CosmographyFeature } from './cosmography';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const DEG = 180 / Math.PI;
@@ -155,6 +157,7 @@ export class App {
   dust = new DustFeature();
   // --- Messengers hook (created with the post pass)
   msg!: MessengerFeature;
+  cosmo!: CosmographyFeature; // --- Cosmography hook (created with the post pass)
 
   async start() {
     initLang();
@@ -194,6 +197,11 @@ export class App {
     this.msg = new MessengerFeature({ // --- Messengers hook
       post: this.post, scene: this.scene, tileBase: () => this.tileBase, dirty: () => (this.dirty = true),
       rebuildLabels: () => this.labels && this.buildLabels(), renderPanel: () => this.manifest && this.renderLayerPanel(),
+    });
+    this.cosmo = new CosmographyFeature({ // --- Cosmography hook
+      scene: this.scene, tileBase: () => this.tileBase, dirty: () => (this.dirty = true),
+      rebuildLabels: () => this.labels && this.buildLabels(), renderPanel: () => this.manifest && this.renderLayerPanel(),
+      fly: (v) => void this.nav.flyTo(v),
     });
     this.picker = new GpuPicker(this.renderer, this.camera);
     this.nav = new NavController(canvas, this.camera);
@@ -297,6 +305,8 @@ export class App {
       } else if (cfg.type === 'milky-way-model') {
         this.mwCfg = cfg;
         this.mw.visible = vis ?? cfg.visible;
+      } else if (cfg.type !== 'small-bodies' && cfg.type !== 'satellites' && this.cosmo.claims(cfg)) {
+        this.cosmo.addLayer(cfg as ModelLayerConfig, vis); // --- Cosmography hook
       } else if (cfg.type !== 'small-bodies' && cfg.type !== 'satellites' && this.msg.claims(cfg)) {
         this.msg.addLayer(cfg as ModelLayerConfig, vis); // --- Messengers hook (small-bodies / satellites excluded above)
       } else if (cfg.type === 'sky') {
@@ -398,6 +408,7 @@ export class App {
     out.solar = this.solar.visible; // --- Solar System hook
     if (this.dust.cfg && this.dust.status === 'ready') out[this.dust.cfg.id] = this.dust.visible; // --- Dust hook
     Object.assign(out, this.msg.visibility()); // --- Messengers hook
+    Object.assign(out, this.cosmo.visibility()); // --- Cosmography hook
     for (const x of this.solar.extras) out[x.cfg.id] = x.visible; // --- Small bodies hook
     return out;
   }
@@ -413,6 +424,7 @@ export class App {
     else if (id === 'solar') this.solar.visible = on; // --- Solar System hook
     else if (this.dust.cfg?.id === id) this.dust.visible = on; // --- Dust hook
     else if (this.solar.extra(id)) this.solar.extra(id)!.visible = on; // --- Small bodies hook
+    else if (this.cosmo.setVisible(id, on)) { /* --- Cosmography hook */ }
     else this.msg.setVisible(id, on); // --- Messengers hook
     const cb = document.getElementById(`lyr-${id}`) as HTMLInputElement | null;
     if (cb && cb.checked !== on) {
@@ -551,6 +563,8 @@ export class App {
       }
     } else if (dc && (this.dust.status === 'missing' || this.dust.status === 'error')) missing.push(title(dc));
     for (const r of this.msg.panelRows()) row(r); // --- Messengers hook: CMB, FRB and neutrino rows
+    for (const r of this.cosmo.panelRows()) row(r); // --- Cosmography hook: grid, CF4 density / flow, groups
+    missing.push(...this.cosmo.missing()); // --- Cosmography hook
     // --- Solar System hook: its row in the layers panel
     row({
       id: 'solar', title: solarTr('layer.solar'), swatch: 'solar', meta: solarTr('layer.solar.meta'),
@@ -577,6 +591,7 @@ export class App {
       this.gwCfg && this.gw.events.length ? `${title(this.gwCfg)}: ${this.gwCfg.credit}` : '', // --- GW hook
       dc && this.dust.status === 'ready' ? `${title(dc)}: ${dc.credit}` : '', // --- Dust hook
       ...this.msg.credits(), // --- Messengers hook: every sky background, CMB, FRB, neutrino survey
+      ...this.cosmo.credits(), // --- Cosmography hook
       solarTr('solar.credit'), // --- Solar System hook
       ...this.solar.extras.map((x) => `${title(x.cfg)}: ${x.cfg.credit ?? ''}`), // --- Small bodies hook
       t('credits.sesame'),
@@ -611,6 +626,7 @@ export class App {
     if (this.gw.events.length) this.renderLayerPanel(); // --- GW hook: its row needs the events
     this.buildLabels();
     void this.msg.attachCatalog(this.catalog); // --- Messengers hook: 3D markers now, sky directions join the search later
+    void this.cosmo.attachCatalog(this.catalog).then(() => this.buildLabels()); // --- Cosmography hook: 2MRS groups join the search
     void this.loadBlackHoles(); // --- Black hole hook
   }
 
@@ -647,6 +663,7 @@ export class App {
     items.push(...this.solar.featureLabels);
     for (const e of entries) {
       if (!e.xyz || this.msg.hidesKind(e.kind)) continue; // --- Messengers hook: a switched-off layer hides its labels
+      if (this.cosmo.hidesLabel(e)) continue; // --- Cosmography hook: unnamed groups, kinds of switched-off layers
       const d = e.dist_pc;
       const absMag = e.mag !== null && e.mag !== undefined && d > 0 ? e.mag - 5 * Math.log10(d / 10) : null;
       const isMw = /^milky way/i.test(e.name);
@@ -666,6 +683,7 @@ export class App {
     }
     if (!entries.some((e) => /^milky way/i.test(e.name))) items.push({ name: t('view.milky-way'), xyz: [R0_PC, 0, 0], kind: 'galaxy', absMag: -20.8, minScale: 2e5, sizePc: 15000, context: true,
       onClick: () => this.nav.flyTo({ focus: [R0_PC, 0, 0], dist: 6e4, pitch: 1.5 }) });
+    items.push(...this.cosmo.labelItems()); // --- Cosmography hook: SG axis and ring labels
     for (const m of this.mw.labels) items.push({ name: tOr(MW_LABEL_KEYS[m.name] ?? '', m.name), xyz: m.xyz, kind: 'model', absMag: null, minScale: 4000, maxScale: 2e5, sizePc: 2000 });
     this.labels.setItems(items);
     this.labelItems = items;
@@ -815,6 +833,7 @@ export class App {
     }
     this.mwFade = this.mw.update(cam, pxPerRad, this.dpr);
     this.gw.update(cam, D); // --- GW hook
+    this.cosmo.update(cam, D, this.dpr); // --- Cosmography hook
     const ge = AUTO_EXPOSURE.galaxy;
     this.shapes.update({
       cam, camera: this.camera, frustum: this.frustum, pxPerRad, dpr: this.dpr, dt, exposure: this.exposure,
@@ -1037,6 +1056,13 @@ export class App {
       if (fly) void this.nav.flyTo(this.viewFor(me));
       return;
     }
+    // --- Cosmography hook: 2MRS group markers are picked on the CPU too
+    const ce = this.cosmo.pickAt(cx, cy, this.nav.camPos(), this.camera, window.innerWidth, window.innerHeight);
+    if (ce) {
+      this.showCatalogEntry(ce);
+      if (fly) void this.nav.flyTo(this.viewFor(ce));
+      return;
+    }
     const hit = await this.picker.pick(cx, cy);
     const L = hit ? this.layers.find((l) => l.code === hit.layerCode) : undefined;
     const n = hit && L ? this.streamer.nodeForSlot(hit.slot) : null;
@@ -1052,6 +1078,8 @@ export class App {
         if (fly) void this.nav.flyTo(this.viewFor(ge));
       } else if (this.showDustAt(cx, cy, fly)) {
         // --- Dust hook: a click on a cloud (nothing else under the cursor)
+      } else if (this.showCosmoAt(cx, cy, fly)) {
+        // --- Cosmography hook: a click on a CF4 overdensity
       } else if (!fly) this.closeInfo();
       return;
     }
@@ -1059,6 +1087,18 @@ export class App {
     const c = n.meta.center;
     const xyz: Vec3 = [c[0] + p[hit.index * 3], c[1] + p[hit.index * 3 + 1], c[2] + p[hit.index * 3 + 2]];
     await this.showPoint(n, hit.index, xyz, fly, n.data.rgbl[hit.index * 4 + 3]);
+  }
+
+  /** --- Cosmography hook: the CF4 overdensity under CSS pixel (cx, cy) -> info card; false when there is none */
+  showCosmoAt(cx: number, cy: number, fly: boolean): boolean {
+    const v = new THREE.Vector3((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1, 0.5).unproject(this.camera).sub(this.camera.position).normalize();
+    const c = this.cosmo.pickVolume(this.nav.camPos(), [v.x, v.y, v.z]);
+    if (!c) return false;
+    this.selection = { xyz: c.fly.focus, title: c.title, fly: c.fly, ref: null };
+    this.infoRefresh = () => this.showCosmoAt(cx, cy, false);
+    this.openInfo({ ...c, italic: false, doc: 'laniakea' });
+    if (fly) void this.nav.flyTo(c.fly);
+    return true;
   }
 
   /** --- Dust hook: the cloud under CSS pixel (cx, cy) -> info card; false when there is none */
@@ -1225,6 +1265,7 @@ export class App {
     // catalogue facts (labels facts.<key>, units and decimal mark per language) and exoplanets
     const loc = { t: (k: string) => t(k), decimal: decimalSep() };
     rows.push(...factRows(e.facts, loc.t, loc), ...planetRows(e.planets, loc));
+    rows.push(...this.cosmo.cardRows(e)); // --- Cosmography hook: group members, CF4-scale distance
     if (e.ra !== undefined && e.dec !== undefined) rows.push(...this.positionRows(galToLB(radecDistToGal(e.ra, e.dec, 1)), e.ra, e.dec));
     let note = e.ref ? t('info.source', { ref: e.ref }) : '';
     if (e.kind === 'gw_event') note = `${gwNote(e)} ${note}`; // --- GW hook: say plainly that the position is uncertain
@@ -1748,7 +1789,7 @@ export class App {
     }
     if (!vis[id]) this.setLayerVisible(id, true);
     const L = this.layers.find((l) => l.cfg.id === id);
-    const cfg = L?.cfg ?? this.msg.config(id) ?? (this.mwCfg?.id === id ? this.mwCfg : this.skyCfg); // --- Messengers hook
+    const cfg = L?.cfg ?? this.msg.config(id) ?? this.cosmo.config(id) ?? (this.mwCfg?.id === id ? this.mwCfg : this.skyCfg); // --- Messengers hook
     const v = LAYER_VIEWS[id];
     if (v && cfg) this.flyToNamedView({ ...v, ref: cfg.credit }, () => layerTitle(cfg));
     this.scheduleHash();
@@ -2001,6 +2042,7 @@ export class App {
     if (this.skyCfg) def[this.skyCfg.id] = this.skyCfg.visible;
     def.solar = true;
     Object.assign(def, this.msg.defaults()); // --- Messengers hook
+    Object.assign(def, this.cosmo.defaults()); // --- Cosmography hook
     const out: Record<string, boolean> = {};
     for (const [id, on] of Object.entries(this.layerVisibility())) if (def[id] !== on) out[id] = on;
     return out;

@@ -55,7 +55,14 @@ function fromBeat(id: string, extra: Partial<NamedView> = {}): NamedView {
 const LMC: Vec3 = [7564, -40950, -26928]; // l 280.47, b −32.89, 49.59 kpc (Pietrzyński et al. 2019)
 const SMC: Vec3 = [24206, -37565, -43608]; // l 302.80, b −44.30, 62.44 kpc (Graczyk et al. 2020)
 const M87: Vec3 = [1050720, -4284931, 15899225]; // l 283.78, b 74.49, 16.5 Mpc (Mei et al. 2007)
-const NORMA: Vec3 = [55477692, -38371615, -8593303]; // Abell 3627, l 325.33, b −7.26, cz 4871 km/s ≈ 68 Mpc
+// --- Cosmography hook: catalogue positions (pc, map scale) of cosmography.json entries
+const LANIAKEA: Vec3 = [128780510, 77888121, -37461753]; // centroid of the CF4 Laniakea basin
+const GREAT_ATTRACTOR: Vec3 = [107101887, -18951660, -5406757]; // Laniakea attractor, SG (−62, −8, 39) h⁻¹ Mpc
+const SHAPLEY: Vec3 = [135629578, -150075892, 61441755]; // centroid of the CF4 Shapley basin
+const PERSEUS_PISCES: Vec3 = [-96932229, 102024705, -80651665]; // centroid of the CF4 Perseus–Pisces basin
+const COMA: Vec3 = [1733152, 2876856, 103195581]; // 2MRS nest 100001 at its median cz
+/** NavController yaw / pitch looking down −SGZ (sgframe.ts sgTopDownYawPitch, in degrees) */
+export const SG_POLE = { yawDeg: 47.37, pitchDeg: 6.32 } as const;
 
 export const NAMED_VIEWS: Record<string, NamedView> = {
   'solar-system': fromBeat('sun', { doc: 'solar-system' }),
@@ -78,10 +85,30 @@ export const NAMED_VIEWS: Record<string, NamedView> = {
     target: { catalog: ['M87', 'Virgo A', 'Messier 87'], fallback: M87 },
     dist: 1.2e7, pitchDeg: 25, doc: 'galaxy',
   },
-  // Laniakea: ~160 Mpc across, centred toward the Great Attractor (Norma cluster region)
+  // --- Cosmography hook: Laniakea and its neighbours (data/tiles/catalogs/cosmography.json, scripts/build_cosmography.py).
+  // Fallbacks = the catalogue positions (map scale, Planck18 h); test/cosmography.test.ts checks they agree.
+  // Laniakea: the CF4 basin of attraction (Dupuy & Courtois 2023), seen from +SGZ like Tully et al. 2014, Fig. 1
   laniakea: {
-    target: { xyz: NORMA }, dist: 3.5e8, pitchDeg: 30, doc: 'cosmic-web', show: ['galaxies-2mrs'],
-    ref: 'Tully, Courtois, Hoffman & Pomarède 2014, Nature 513, 71 (doi:10.1038/nature13674)',
+    target: { catalog: ['Laniakea'], fallback: LANIAKEA }, dist: 5e8, pitchDeg: SG_POLE.pitchDeg, yawDeg: SG_POLE.yawDeg, doc: 'laniakea',
+    show: ['galaxies-2mrs', 'cf4-flow', 'cf4-density', 'sg-grid'],
+    ref: 'Tully, Courtois, Hoffman & Pomarède 2014, Nature 513, 71 (doi:10.1038/nature13674); Dupuy & Courtois 2023, A&A 678, A176',
+  },
+  // looking down on the supergalactic plane from +SGZ (SGX right, SGY up), 300 Mpc either side
+  supergalactic: {
+    target: { sun: true }, dist: 6e8, pitchDeg: SG_POLE.pitchDeg, yawDeg: SG_POLE.yawDeg, doc: 'laniakea', show: ['sg-grid', 'cf4-flow'],
+    ref: 'de Vaucouleurs et al. 1976 (RC2) supergalactic coordinates',
+  },
+  'great-attractor': {
+    target: { catalog: ['Great Attractor'], fallback: GREAT_ATTRACTOR }, dist: 1.6e8, pitchDeg: 25, doc: 'laniakea', show: ['cf4-flow'],
+  },
+  shapley: {
+    target: { catalog: ['Shapley'], fallback: SHAPLEY }, dist: 3.5e8, pitchDeg: 25, doc: 'laniakea', show: ['cf4-flow', 'cf4-density'],
+  },
+  'perseus-pisces': {
+    target: { catalog: ['Perseus-Pisces'], fallback: PERSEUS_PISCES }, dist: 3e8, pitchDeg: 25, doc: 'laniakea', show: ['cf4-flow', 'cf4-density'],
+  },
+  'coma-cluster': {
+    target: { catalog: ['Coma Cluster'], fallback: COMA }, dist: 2.5e7, pitchDeg: 25, doc: 'laniakea', show: ['groups-2mrs'],
   },
   'desi-footprint': {
     target: { sun: true }, dist: 1.2e10, pitchDeg: 20, yawDeg: -150, doc: 'desi-survey', show: ['galaxies-desi'],
@@ -139,6 +166,14 @@ export const ALIASES: AliasEntry[] = [
   view('virgo-cluster', ['Virgo toʻdasi', 'Sunbula toʻdasi'], ['Virgo Cluster', 'Virgo cluster of galaxies'],
     ['скопление Девы', 'Скопление в Деве']),
   view('laniakea', ['Laniakea', 'Laniakea oʻta toʻdasi'], ['Laniakea', 'Laniakea Supercluster'], ['Ланиакея', 'сверхскопление Ланиакея']),
+  // --- Cosmography hook
+  view('supergalactic', ['Supergalaktik koʻrinish', 'Supergalaktik tekislik', 'Supergalaktik koordinatalar'],
+    ['Supergalactic view', 'supergalactic plane', 'supergalactic coordinates', 'SGX SGY'], ['Сверхгалактический вид', 'сверхгалактическая плоскость', 'сверхгалактические координаты']),
+  view('great-attractor', ['Buyuk Attraktor', 'Buyuk tortuvchi'], ['Great Attractor', 'the Great Attractor', 'Laniakea attractor'], ['Великий аттрактор', 'Великий Аттрактор']),
+  view('shapley', ['Shepli oʻta toʻdasi', 'Shapley', 'Shepli'], ['Shapley Supercluster', 'Shapley Concentration', 'Shapley'], ['Сверхскопление Шепли', 'Концентрация Шепли', 'Шепли']),
+  view('perseus-pisces', ['Persey–Baliqlar oʻta toʻdasi', 'Persey Baliqlar'], ['Perseus–Pisces Supercluster', 'Perseus-Pisces', 'Perseus Pisces'],
+    ['Сверхскопление Персея–Рыб', 'Персей–Рыбы', 'Персей Рыбы']),
+  view('coma-cluster', ['Coma toʻdasi', 'Veronika Sochi toʻdasi'], ['Coma Cluster', 'Abell 1656', 'Coma cluster of galaxies'], ['Скопление Волос Вероники', 'скопление Кома']),
   view('desi-footprint', ['DESI qamrovi', 'DESI maydoni', 'DESI'], ['DESI footprint', 'DESI survey', 'DESI'], ['область обзора DESI', 'обзор DESI', 'DESI']),
 
   kind('black_hole', ['black_hole'], 'black-hole', ['qora tuynuk', 'qora tuynuklar'], ['black hole', 'black holes'], ['чёрная дыра', 'чёрные дыры']),

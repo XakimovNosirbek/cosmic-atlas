@@ -11,6 +11,8 @@ import { searchCatalog } from '../data/resolve';
 import { flyTargetForLatLon } from '../solar';
 import type { Satellites } from '../solar/satellites';
 import type { SmallBodies } from '../solar/smallbodies';
+import { sgTopDownYawPitch } from '../cosmography/sgframe';
+import { sgHToMapPc } from '../cosmography/data';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -65,6 +67,33 @@ export function installDebugApi(app: App) {
       return !!e;
     },
     setSky: (on: boolean) => app.setLayerVisible(app.skyCfg?.id ?? 'gaia-sky', on),
+    // --- Cosmography hook (captures / tests): SG grid, CF4 density + flow, 2MRS groups
+    cosmo: {
+      state: () => app.cosmo.debug(),
+      /** resolves once meta.json and the three binaries are in (or failed) */
+      load: () => app.cosmo.load().then(() => app.cosmo.debug().status),
+      /** the supergalactic top-down view: camera on +SGZ, `dist` pc from `focus` */
+      sgView: (dist = 6e8, focus: Vec3 = [0, 0, 0]) => {
+        const { yaw, pitch } = sgTopDownYawPitch();
+        app.nav.setView({ focus, dist, yaw, pitch });
+      },
+      /** SG (h⁻¹ Mpc) → contract-frame pc at the map scale */
+      sgToMap: (sg: Vec3) => (app.cosmo.meta ? sgHToMapPc(sg, app.cosmo.meta) : null),
+      /** CSS-px screen position of a catalogue entry (null if behind the camera) */
+      screenOf: (name: string) => {
+        const e = app.findEntry(name);
+        return e?.xyz ? app.project(e.xyz, app.nav.camPos()) : null;
+      },
+      /** info-card rows of the overdensity under the screen point (x, y), or null */
+      pickAt: (x: number, y: number) => (app.showCosmoAt(x, y, false) ? [...document.querySelectorAll('#info-rows dt')].map((dt) => `${dt.textContent}: ${dt.nextElementSibling?.textContent}`) : null),
+      setGain: (density?: number, flow?: number, d0?: number, d1?: number) => {
+        if (density !== undefined && app.cosmo.volume) app.cosmo.volume.uGain.value = density;
+        if (d0 !== undefined && app.cosmo.volume) app.cosmo.volume.uD0.value = d0;
+        if (d1 !== undefined && app.cosmo.volume) app.cosmo.volume.uD1.value = d1;
+        if (flow !== undefined && app.cosmo.streams) app.cosmo.streams.uGain.value = flow;
+        app.dirty = true;
+      },
+    },
     // --- Messengers hook (captures / tests): CMB shell, sky background, FRB and neutrino markers
     messengers: {
       state: () => app.msg.debug(),

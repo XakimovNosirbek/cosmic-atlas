@@ -15,6 +15,7 @@
     "tiles/catalogs/cmb.json",
     "tiles/catalogs/frb-hosts.json",
     "tiles/catalogs/neutrino-sources.json",
+    "tiles/catalogs/cosmography.json",
     "tiles/catalogs/dev-placeholder.json"
   ],
   "layers": [
@@ -161,6 +162,38 @@
       "title": "Gravitational-wave localisations",
       "visible": true,
       "credit": "LIGO/Virgo/KAGRA GWTC via GWOSC and Zenodo (CC BY 4.0); 90 % credible volumes, Planck18 comoving"
+    },
+    {
+      "id": "sg-grid",
+      "type": "sg-grid",
+      "title": "Supergalactic grid",
+      "visible": false,
+      "credit": "Supergalactic coordinates of de Vaucouleurs et al. 1976 (RC2), as defined in astropy Supergalactic"
+    },
+    {
+      "id": "cf4-density",
+      "type": "cf4-density",
+      "title": "Cosmicflows-4 matter density",
+      "path": "tiles/cosmography",
+      "visible": false,
+      "credit": "CF4++ HMC posterior mean density (Courtois et al. 2025, A&A 701, A187; grid of 2026-10-13). Lengths in h⁻¹ Mpc drawn with Planck18 h = 0.6766; CF4 itself gives H0 = 75"
+    },
+    {
+      "id": "cf4-flow",
+      "type": "cf4-flow",
+      "title": "Cosmic flows and basins (Laniakea)",
+      "path": "tiles/cosmography",
+      "visible": false,
+      "credit": "Streamlines traced here through the CF4++ velocity field (Courtois et al. 2025); basins of attraction of Dupuy & Courtois 2023, A&A 678, A176 (CF4)"
+    },
+    {
+      "id": "groups-2mrs",
+      "type": "galaxy-groups",
+      "kind": "galaxy_group",
+      "title": "Galaxy groups (2MRS)",
+      "data": "groups-2mrs.json",
+      "visible": false,
+      "credit": "Tully 2015, AJ 149, 171 (2MASS group catalogue, VizieR J/AJ/149/171)"
     },
     {
       "id": "cmb",
