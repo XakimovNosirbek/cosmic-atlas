@@ -22,7 +22,7 @@ export interface SourceDoc {
 }
 
 export interface SiteOptions {
-  /** absolute site URL with a trailing slash, e.g. https://ismoilovdevml.github.io/cosmic-atlas/ */
+  /** absolute site URL with a trailing slash, e.g. https://cosmic.bristleconelab.org/ */
   site: string;
   /** ISO date used when an article has no `updated:` */
   today: string;

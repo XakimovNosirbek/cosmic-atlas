@@ -1,5 +1,5 @@
 // Render the social preview image (Open Graph / Twitter card), 1200x630, into web/public/og-image.jpg.
-//   node scripts/og_image.mjs [baseUrl=https://ismoilovdevml.github.io/cosmic-atlas/] [out=web/public/og-image.jpg]
+//   node scripts/og_image.mjs [baseUrl=https://cosmic.bristleconelab.org/] [out=web/public/og-image.jpg]
 // The black hole tour is stopped at its "Einstein ring" stop (Gaia BH3 bending the Milky Way), the UI is
 // hidden and a title card is drawn on the left. The page is rendered 1700 px wide and the left 1200 px
 // kept, so the hole (centred in the view) lands on the right, clear of the card.
@@ -9,7 +9,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const [,, base = 'https://ismoilovdevml.github.io/cosmic-atlas/', out = join(ROOT, 'web/public/og-image.jpg')] = process.argv;
+const [,, base = 'https://cosmic.bristleconelab.org/', out = join(ROOT, 'web/public/og-image.jpg')] = process.argv;
 
 const browser = await chromium.launch({
   channel: 'chrome', headless: true,
@@ -50,7 +50,7 @@ await page.evaluate(() => {
     <p>A 3D map of the real universe in your browser, from Earth to the cosmic web.</p>
     <div class="big">39.6 million</div>
     <p class="sub">Gaia stars, plus 15 million DESI galaxies</p>
-    <div class="url">ismoilovdevml.github.io/cosmic-atlas</div>`;
+    <div class="url">cosmic.bristleconelab.org</div>`;
   const n = document.createElement('div');
   n.id = 'og-note';
   n.textContent = 'The Milky Way bent by the black hole Gaia BH3 (ray-traced)';

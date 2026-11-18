@@ -78,7 +78,7 @@ function seoPages(): Plugin {
           docs.push({ lang, slug: f.slice(0, -3), text: readFileSync(resolve(dir, f), 'utf8') });
       }
       const files = buildLearnSite(docs, {
-        site: process.env.VITE_SITE_URL || 'https://ismoilovdevml.github.io/cosmic-atlas/',
+        site: process.env.VITE_SITE_URL || 'https://cosmic.bristleconelab.org/',
         today: new Date().toISOString().slice(0, 10),
       });
       for (const f of files) {

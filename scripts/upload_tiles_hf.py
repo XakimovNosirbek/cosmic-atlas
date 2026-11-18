@@ -31,7 +31,7 @@ tags: [astronomy, gaia, 3d, octree]
 ---
 # Cosmic Atlas tiles
 
-Streamable octree tiles for [Cosmic Atlas](https://ismoilovdevml.github.io/cosmic-atlas/), a browser 3D
+Streamable octree tiles for [Cosmic Atlas](https://cosmic.bristleconelab.org/), a browser 3D
 map of the universe. Format: [docs/data-contract.md](https://github.com/ismoilovdevml/cosmic-atlas/blob/main/docs/data-contract.md)
 (nodes are sharded as `<layer>/n/<first {shard} chars of the node name>/<node><suffix>`).
 

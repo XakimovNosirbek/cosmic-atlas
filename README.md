@@ -2,7 +2,8 @@
 
 **A 3D map of the real universe in your browser, from Earth to the cosmic web, built only from open survey data.**
 
-**[Open the atlas →](https://ismoilovdevml.github.io/cosmic-atlas/)**
+**[Open the atlas →](https://cosmic.bristleconelab.org/)**
+(mirror: [ismoilovdevml.github.io/cosmic-atlas](https://ismoilovdevml.github.io/cosmic-atlas/))
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24224239.svg)](https://doi.org/10.5281/zenodo.24224239)
 
@@ -38,9 +39,9 @@ number on screen comes with the catalogue it came from.
   time slows and tides grow as you go closer.
 - **Read about anything.** Every object links to a short article, in Uzbek, English or Russian.
   The 57 articles, with their sources, are also plain web pages:
-  [English](https://ismoilovdevml.github.io/cosmic-atlas/learn/en/),
-  [Oʻzbekcha](https://ismoilovdevml.github.io/cosmic-atlas/learn/uz/),
-  [Русский](https://ismoilovdevml.github.io/cosmic-atlas/learn/ru/).
+  [English](https://cosmic.bristleconelab.org/learn/en/),
+  [Oʻzbekcha](https://cosmic.bristleconelab.org/learn/uz/),
+  [Русский](https://cosmic.bristleconelab.org/learn/ru/).
 - **Share a view.** The link names the object you are looking at, e.g. `#at=Saturn`. Save views
   and play them back as a short story.
 

@@ -6,7 +6,7 @@ doi: "10.5281/zenodo.24224239"
 authors:
   - alias: ismoilovdevml
 repository-code: "https://github.com/ismoilovdevml/cosmic-atlas"
-url: "https://ismoilovdevml.github.io/cosmic-atlas/"
+url: "https://cosmic.bristleconelab.org/"
 license: MIT
 abstract: >-
   A browser 3D map of the universe built only from open survey data: the Solar System at its
