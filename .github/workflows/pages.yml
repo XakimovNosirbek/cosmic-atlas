@@ -91,6 +91,26 @@ jobs:
           links=$(find dist -type l)
           [ -z "$links" ] || { echo "::error::Pages artifacts may not contain links: $links"; exit 1; }
 
+      # Cloudflare Pages (project cosmic-atlas, https://cosmic-atlas-axd.pages.dev) gets the same build as GitHub
+      # Pages. Needs the repository secret CLOUDFLARE_API_TOKEN (Account > Cloudflare Pages > Edit); skipped without
+      # it, and a Cloudflare problem never blocks the GitHub Pages deploy. wrangler runs from an empty directory: run in
+      # web/ it rewrites package.json and vite.config.ts (deploy/cloudflare_pages.sh, same pitfall).
+      - name: Deploy the same build to Cloudflare Pages
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 95c89337261f10f37ac1310191b2ebb7
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "::warning::CLOUDFLARE_API_TOKEN not set: Cloudflare Pages not updated"; exit 0; fi
+          n=$(find dist -type f | wc -l); big=$(find dist -type f -size +24M)
+          echo "files: $n"; [ "$n" -le 20000 ] || { echo "::error::$n files, Cloudflare Pages allows 20,000"; exit 1; }
+          [ -z "$big" ] || { echo "::error::files over 24 MB: $big"; exit 1; }
+          printf '/tiles/*\n  Cache-Control: public, max-age=86400\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n' > dist/_headers
+          site="$PWD/dist"; msg="$(git log -1 --format=%s | head -c 200)"
+          mkdir -p "$RUNNER_TEMP/cf" && cd "$RUNNER_TEMP/cf"
+          npx --yes wrangler@4.164.0 pages deploy "$site" --project-name cosmic-atlas --branch main --commit-hash "$GITHUB_SHA" --commit-message "$msg"
+          rm -f "$site/_headers"
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v4
