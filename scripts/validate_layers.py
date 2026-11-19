@@ -47,13 +47,23 @@ def human(n: int) -> str:
     return f"{n:.1f} TB"
 
 
+def load_entries(path: str | Path) -> list[dict]:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict) and isinstance(data.get("entries"), list):
+        return data["entries"]
+    return []
+
+
 def main() -> int:
     fail = 0
     print("== layers")
     for f in sorted(glob.glob(str(RAW / "*" / "*.parquet"))):
         print(f"  {Path(f).relative_to(ROOT)}: {pq.read_metadata(f).num_rows:,} rows, {human(Path(f).stat().st_size)}")
     for f in sorted(glob.glob(str(CATS / "*.json"))):
-        e = json.load(open(f))
+        e = load_entries(f)
         print(f"  {Path(f).relative_to(ROOT)}: {len(e)} entries, {human(Path(f).stat().st_size)}, "
               f"{sum(x.get('xyz') is None for x in e)} without xyz")
     raw_total = sum(p.stat().st_size for p in RAW.rglob("*") if p.is_file())
@@ -74,16 +84,19 @@ def main() -> int:
             print(f"  z {edges[k]:.1f}-{edges[k+1]:.1f}: {h[k]:,}")
 
     print("== Local Group landmarks (local-group.json)")
-    lg = {x["name"]: x for x in json.load(open(CATS / "local-group.json"))}
+    lg = {x["name"]: x for x in load_entries(CATS / "local-group.json")}
     for n, (lo, hi) in LANDMARKS.items():
         x = lg.get(n)
         ok = x is not None and lo <= x["dist_pc"] <= hi
         fail += not ok
-        print(f"  {'PASS' if ok else 'FAIL'} {n}: ra {x['ra']:.4f} dec {x['dec']:.4f} d {x['dist_pc']/1e3:.1f} kpc "
-              f"(expected {lo/1e3:.0f}-{hi/1e3:.0f}) xyz {x['xyz']}")
+        if x is None:
+            print(f"  FAIL {n}: missing from local-group.json (expected {lo/1e3:.0f}-{hi/1e3:.0f} kpc)")
+        else:
+            print(f"  {'PASS' if ok else 'FAIL'} {n}: ra {x['ra']:.4f} dec {x['dec']:.4f} d {x['dist_pc']/1e3:.1f} kpc "
+                  f"(expected {lo/1e3:.0f}-{hi/1e3:.0f}) xyz {x['xyz']}")
 
     print("== named stars vs live SIMBAD")
-    ns = {x["name"]: x for x in json.load(open(CATS / "named-stars.json"))}
+    ns = {x["name"]: x for x in load_entries(CATS / "named-stars.json")}
     ids = ",".join("'" + v + "'" for v in STARS.values())
     sb = tap_sync(SIMBAD_TAP, "SELECT i.id, b.ra, b.dec, b.plx_value, f.V FROM ident AS i JOIN basic AS b ON "
                               f"b.oid = i.oidref LEFT JOIN allfluxes AS f ON f.oidref = b.oid WHERE i.id IN ({ids})")
@@ -97,7 +110,7 @@ def main() -> int:
 
     print("== xyz recomputed with astropy")
     for f in sorted(glob.glob(str(CATS / "*.json"))):
-        e = [x for x in json.load(open(f)) if x.get("xyz") is not None and x.get("dist_pc")]
+        e = [x for x in load_entries(f) if x.get("xyz") is not None and x.get("dist_pc")]
         if not e:
             continue
         c = SkyCoord(ra=[x["ra"] for x in e] * u.deg, dec=[x["dec"] for x in e] * u.deg,

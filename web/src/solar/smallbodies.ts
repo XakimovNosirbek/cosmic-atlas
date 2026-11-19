@@ -16,6 +16,7 @@
 
 import * as THREE from 'three/webgpu';
 import { Fn, float, length, smoothstep, uniform, uv, vec3 } from 'three/tsl';
+import { fmtFixed } from '../i18n';
 import type { Vec3 } from '../math/frames';
 import { PC_PER_AU } from '../math/units';
 import { srgbToLinear } from '../render/brightness';
@@ -155,8 +156,8 @@ export class SmallBodies implements SolarExtra {
   metaText(): string {
     const n = this.meta?.classes.reduce((a, c) => a + c.count, 0) ?? 0;
     const loaded = [...this.classes.values()].filter((c) => c.state === 'ready').reduce((a, c) => a + Math.min(c.meta.count, this.cap), 0);
-    const base = tr('sb.layer.meta', { n: n.toLocaleString('en-US') });
-    return loaded > 0 && loaded < n ? `${base} ${tr('sb.layer.drawn', { n: loaded.toLocaleString('en-US') })}` : base;
+    const base = tr('sb.layer.meta', { n, nText: fmtFixed(n, 0) });
+    return loaded > 0 && loaded < n ? `${base} ${tr('sb.layer.drawn', { n: loaded, nText: fmtFixed(loaded, 0) })}` : base;
   }
 
   private async loadIndex() {

@@ -260,27 +260,47 @@ def build_octree(xyz: np.ndarray, capacity: int):
 def subtree_aggregates(nodes, xyz, rgb, lin_l) -> dict:
     """Per node, summed light of the node and ALL its descendants: point count n, total luminosity L
     (units of an M=0 source), light-weighted centroid c (pc, relative to the node centre), and
-    light-weighted mean colour rgb, light-weighted RMS radius about the centroid (pc). Lets the renderer draw one 'blob' for an unloaded subtree so
-    distant views keep their total brightness (idea from skymap, MIT, cut.wesl)."""
+    light-weighted mean colour rgb, light-weighted RMS radius about the centroid (pc). Uses parallel-
+    axis variance merging (Chan's formula) so distant Gpc nodes suffer no catastrophic cancellation."""
     own = {}
     for name, center, half, idx in nodes:
         w = lin_l[idx]
-        own[name] = (len(idx), w.sum(), (xyz[idx] * w[:, None]).sum(0), (rgb[idx].astype(np.float64) * w[:, None]).sum(0),
-                     (w * np.einsum("ij,ij->i", xyz[idx], xyz[idx])).sum(), center)
+        L = float(w.sum())
+        if L > 0:
+            mean = (xyz[idx] * w[:, None]).sum(0) / L
+            diff = xyz[idx] - mean
+            var = float((w * np.einsum("ij,ij->i", diff, diff)).sum())
+            wc = (rgb[idx].astype(np.float64) * w[:, None]).sum(0)
+        else:
+            mean = np.zeros(3)
+            var = 0.0
+            wc = np.zeros(3)
+        own[name] = (len(idx), L, mean, wc, var, center)
     acc = {}
     for name in sorted(own, key=len, reverse=True):
-        n, L, wx, wc, wxx, center = own[name]
+        n, L, mean, wc, var, center = own[name]
         for c in range(8):
             ch = acc.get(name + str(c))
             if ch:
-                n, L, wx, wc, wxx = n + ch[0], L + ch[1], wx + ch[2], wc + ch[3], wxx + ch[4]
-        acc[name] = (n, L, wx, wc, wxx, center)
+                cn, cL, cmean, cwc, cvar, _ = ch
+                n += cn
+                wc = wc + cwc
+                if cL > 0:
+                    if L > 0:
+                        new_L = L + cL
+                        new_mean = (L * mean + cL * cmean) / new_L
+                        d1 = mean - new_mean
+                        d2 = cmean - new_mean
+                        var = var + cvar + L * float(d1 @ d1) + cL * float(d2 @ d2)
+                        L, mean = new_L, new_mean
+                    else:
+                        L, mean, var = cL, cmean, cvar
+        acc[name] = (n, L, mean, wc, var, center)
     out = {}
-    for name, (n, L, wx, wc, wxx, center) in acc.items():
+    for name, (n, L, mean, wc, var, center) in acc.items():
         if L > 0:
-            mean = wx / L
             cen, col = mean - center, wc / L
-            rms = float(np.sqrt(max(wxx / L - float(mean @ mean), 0.0)))
+            rms = float(np.sqrt(max(var / L, 0.0)))
         else:
             cen, col, rms = np.zeros(3), np.array([255.0, 255.0, 255.0]), 0.0
         out[name] = {"n": int(n), "L": float(f"{L:.6g}"), "c": [round(float(v), 4) for v in cen],
@@ -291,7 +311,7 @@ def subtree_aggregates(nodes, xyz, rgb, lin_l) -> dict:
 # --------------------------------------------------------------------------- main
 def load_layer(layer: str, files: list[Path]):
     cols_wanted = ["id", "ra", "dec", "dist_pc", "dist_lo_pc", "dist_hi_pc", "mag", "color", "kind",
-                   "source_id", "targetid", "z", "pmra", "pmdec", "radial_velocity"]
+                   "source_id", "targetid", "numeric_id", "z", "pmra", "pmdec", "radial_velocity"]
     parts = []
     for f in files:
         schema = pq.read_schema(f)
@@ -408,7 +428,9 @@ def main(argv=None):
                 "half": float(half), "count": int(len(idx)), "children": mask, "agg": agg[name]}
         if vel is not None:
             vr = np.empty(len(idx), dtype=VEL_DTYPE)
-            v16 = vel[idx].astype(np.float16)
+            # float16 max is 65504: sanitize/clamp outlier velocities so no Infinity/NaN leaks into tiles or meta.json
+            v_clean = np.nan_to_num(vel[idx], nan=0.0, posinf=65000.0, neginf=-65000.0)
+            v16 = np.clip(v_clean, -65000.0, 65000.0).astype(np.float16)
             vr["vx"], vr["vy"], vr["vz"], vr["q"] = v16[:, 0], v16[:, 1], v16[:, 2], vel_q[idx].astype(np.float16)
             vr.tofile(out / "n" / f"{name}.vel.bin")
             # fastest point of this node (as stored), km/s, rounded up: lets the viewer grow the node's
@@ -445,7 +467,7 @@ def main(argv=None):
             "counts": {"full": n_full, "tangential": n_tan, "none": int(n - n_full - n_tan)},
             "pcPerKmsMyr": PC_PER_KMS_MYR,
         }
-    (out / "meta.json").write_text(json.dumps(meta, separators=(",", ":")))
+    (out / "meta.json").write_text(json.dumps(meta, separators=(",", ":"), allow_nan=False))
     size = sum(p.stat().st_size for p in out.rglob("*") if p.is_file())
     print(f"[{a.layer}] wrote {total} points, {len(meta_nodes)} nodes, {size/1e6:.1f} MB -> {out} ({time.time()-t0:.1f}s)")
 

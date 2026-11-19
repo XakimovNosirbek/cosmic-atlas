@@ -58,7 +58,7 @@ export function solarInfo(sys: SolarSystem, e: SolarEntry): SolarInfo {
     if (c?.on) {
       rows.push([tr('facts.dist_sun'), formatAuLight(dSun)], [tr('facts.dist_earth'), formatAuLight(dEarth)]);
       const v = Math.hypot(...c.vel) / PC_PER_AU * KM_PER_AU / 86400;
-      rows.push([tr('facts.speed_kms'), `${v.toFixed(2)} km/s`]);
+      rows.push([tr('facts.speed_kms'), `${v.toFixed(2)} ${tr('facts.unit.kms')}`]);
     }
     const span = c ? sys.spanOf(c) : null;
     const isoDate = (jd: number) => new Date((jd - 2440587.5) * 86400000).toISOString().slice(0, 10);
@@ -66,7 +66,7 @@ export function solarInfo(sys: SolarSystem, e: SolarEntry): SolarInfo {
       kind: tr('kind.spacecraft'),
       title: e.name,
       rows,
-      note: tr('solar.note.craft', { span: span ? `${isoDate(span[0])} to ${isoDate(span[1])}` : 'n/a' }) + (c?.on ? '' : ' Outside the track at this time.'),
+      note: tr('solar.note.craft', { span: span ? `${isoDate(span[0])} – ${isoDate(span[1])}` : tr('common.na') }) + (c?.on ? '' : ` ${tr('sat.outside')}`),
       docs: e.docs,
     };
   }
@@ -99,7 +99,7 @@ export function solarInfo(sys: SolarSystem, e: SolarEntry): SolarInfo {
     const y = def.periodDays / 365.25;
     rows.push([tr('facts.period_days'), y >= 0.995 ? `${y.toFixed(y < 10 ? 2 : 1)} ${tr('unit.years')} (${fmt(def.periodDays, def.periodDays < 1000 ? 1 : 0)} ${tr('unit.days')})` : `${sig(def.periodDays, 4)} ${tr('unit.days')}`]);
   }
-  const parent = def.parent ? BODY_BY_ID.get(def.parent)!.names.en : null;
+  const parent = def.parent ? tr(`body.${def.parent}`) : null;
   let note = tr('solar.note.body', { version: AE_VERSION });
   if (def.id === 'mars') note += ` ${tr('solar.note.moons_missing')}`;
   return {

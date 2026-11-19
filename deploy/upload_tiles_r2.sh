@@ -17,9 +17,13 @@ export RCLONE_CONFIG_R2_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID" RCLONE_CONFIG_R2_SECRE
 export RCLONE_CONFIG_R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
 
 .venv/bin/python scripts/write_tiles_index.py data/tiles   # static _index.json next to the layers
-# synthetic-* layers are dev data; skip them. Tiles are immutable per build -> long cache.
+# synthetic-* layers are dev data; skip them. Binary tiles get long cache; JSON manifests/catalogues stay short-lived.
 rclone sync data/tiles "r2:${R2_BUCKET}" "$@" \
-  --exclude "synthetic-*/**" --transfers 16 --checkers 32 --fast-list \
+  --exclude "synthetic-*/**" --exclude "*.json" --transfers 16 --checkers 32 --fast-list \
   --header-upload "Cache-Control: public, max-age=604800" \
+  --s3-no-check-bucket --progress
+rclone sync data/tiles "r2:${R2_BUCKET}" "$@" \
+  --exclude "synthetic-*/**" --include "*.json" --exclude "*" --transfers 16 --checkers 32 --fast-list \
+  --header-upload "Cache-Control: public, max-age=300" \
   --s3-no-check-bucket --progress
 echo "uploaded; check: curl -I https://<your-domain>/galaxies-desi/meta.json"

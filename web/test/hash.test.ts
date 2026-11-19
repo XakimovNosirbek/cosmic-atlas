@@ -44,5 +44,7 @@ describe('deep link', () => {
     expect(parseHash('#v=0,0,0,1,-150,18').view).toEqual({ focus: [0, 0, 0], dist: 1, yawDeg: -150, pitchDeg: 18 });
     expect(parseHash('#v=1,2,3,-5,0,0').view).toBeUndefined();
     expect(parseHash('#sel=stars-gaia:12x@1,2,3').sel).toBeUndefined();
+    expect(parseHash('#sel=cat:100%').sel).toBeUndefined();
+    expect(parseHash('#l=__proto__,constructor,toString,dust').layers).toEqual({ dust: true });
   });
 });

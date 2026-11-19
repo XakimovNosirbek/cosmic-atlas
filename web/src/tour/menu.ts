@@ -19,6 +19,7 @@ export class ToursMenu {
   onPick: (id: string) => void = () => {};
   /** called before the first open, and on every open, to (re)build the list */
   items: () => Promise<MenuItem[]> = async () => [];
+  private renderTok = 0;
 
   constructor(private button: HTMLButtonElement) {
     const el = document.createElement('div');
@@ -35,8 +36,8 @@ export class ToursMenu {
     document.addEventListener('pointerdown', (e) => {
       if (!el.hidden && !el.contains(e.target as Node) && !button.contains(e.target as Node)) this.close();
     });
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !el.hidden) {
         e.stopPropagation();
         this.close();
         button.focus();
@@ -53,7 +54,7 @@ export class ToursMenu {
     this.button.setAttribute('aria-expanded', 'true');
     this.el.hidden = false;
     await this.render();
-    this.el.querySelector<HTMLButtonElement>('.tm-item')?.focus();
+    if (this.isOpen) this.el.querySelector<HTMLButtonElement>('.tm-item')?.focus();
   }
 
   close() {
@@ -62,6 +63,7 @@ export class ToursMenu {
   }
 
   async render() {
+    const tok = ++this.renderTok;
     this.el.querySelector('h2')!.textContent = t('tours.menu');
     const list = this.el.querySelector('.tm-list')!;
     let items: MenuItem[];
@@ -74,6 +76,7 @@ export class ToursMenu {
     try {
       items = await this.items();
     } catch (err) {
+      if (tok !== this.renderTok) return;
       // a page left open across a deploy asks for a code chunk that no longer exists; say so
       // instead of showing an empty list
       console.warn('tours: could not load the tour list', err);
@@ -92,6 +95,7 @@ export class ToursMenu {
       list.removeAttribute('aria-busy');
       return;
     }
+    if (tok !== this.renderTok) return;
     list.removeAttribute('aria-busy');
     list.innerHTML = '';
     for (const it of items) {

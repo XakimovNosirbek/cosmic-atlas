@@ -110,8 +110,10 @@ export function parseHash(hash: string): HashState {
     } else if (key === 'l') {
       out.layers = {};
       for (const tok of val.split(',').filter(Boolean)) {
-        if (tok.startsWith('~')) out.layers[tok.slice(1)] = false;
-        else out.layers[tok] = true;
+        const off = tok.startsWith('~');
+        const id = off ? tok.slice(1) : tok;
+        if (!/^[A-Za-z0-9_.-]{1,64}$/.test(id) || id === 'prototype' || id in Object.prototype) continue;
+        out.layers[id] = !off;
       }
     } else if (key === 'slab') {
       const v = Number(val);
@@ -134,7 +136,12 @@ export function parseHash(hash: string): HashState {
       }
     } else if (key === 'sel') {
       if (val.startsWith('cat:')) {
-        out.sel = { type: 'cat', name: decodeURIComponent(val.slice(4)) };
+        try {
+          const name = decodeURIComponent(val.slice(4));
+          if (name) out.sel = { type: 'cat', name };
+        } catch {
+          /* malformed escape: ignore */
+        }
       } else {
         const m = val.match(/^([A-Za-z0-9_.-]+):(\d{1,20})@([-\d.e+]+),([-\d.e+]+),([-\d.e+]+)$/i);
         if (m) {

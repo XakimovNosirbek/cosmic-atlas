@@ -114,13 +114,20 @@ export function parseSesame(xml: string, query: string): Resolved | null {
 export async function resolveSesame(query: string, signal?: AbortSignal): Promise<Resolved | null> {
   let lastErr: unknown = null;
   for (const base of SESAME_MIRRORS) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 8000);
+    const onAbort = () => ac.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
     try {
-      const r = await fetch(base + encodeURIComponent(query), { signal });
+      const r = await fetch(base + encodeURIComponent(query), { signal: ac.signal });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return parseSesame(await r.text(), query);
     } catch (e) {
-      if ((e as Error).name === 'AbortError') throw e;
+      if (signal?.aborted) throw e;
       lastErr = e;
+    } finally {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
   throw new Error(`Sesame unreachable (${(lastErr as Error)?.message ?? 'network error'})`);
@@ -141,6 +148,18 @@ export interface Suggestion {
   score: number;
 }
 
+const normCache = new WeakMap<CatalogEntry, { altLen: number; pairs: { raw: string; norm: string }[] }>();
+
+function normPairs(e: CatalogEntry): { raw: string; norm: string }[] {
+  const altLen = e.alt?.length ?? 0;
+  const hit = normCache.get(e);
+  if (hit && hit.altLen === altLen) return hit.pairs;
+  const pairs: { raw: string; norm: string }[] = [{ raw: e.name, norm: normName(e.name) }];
+  if (e.alt) for (const a of e.alt) pairs.push({ raw: a, norm: normName(a) });
+  normCache.set(e, { altLen, pairs });
+  return pairs;
+}
+
 export function searchCatalog(entries: CatalogEntry[], q: string, limit = 8): Suggestion[] {
   const nq = normName(q);
   if (!nq) return [];
@@ -148,8 +167,7 @@ export function searchCatalog(entries: CatalogEntry[], q: string, limit = 8): Su
   for (const e of entries) {
     let best = 0;
     let matched = e.name;
-    for (const cand of [e.name, ...(e.alt ?? [])]) {
-      const nc = normName(cand);
+    for (const { raw: cand, norm: nc } of normPairs(e)) {
       let s = 0;
       if (nc === nq) s = 100;
       else if (nc.startsWith(nq)) s = 70 - Math.min(20, nc.length - nq.length);

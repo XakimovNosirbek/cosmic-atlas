@@ -239,19 +239,19 @@ export class CosmographyFeature {
         checked: g.visible, opacity: g.opacity, onOpacity: (v) => (g.opacity = v) });
     }
     const loading = this.status === 'loading';
-    const h0 = this.meta ? fmtFixed(this.meta.scale.H0_cf4, 1) : '75.0';
+    const h0 = fmtFixed(this.meta?.scale.H0_cf4 ?? 75, 1);
     for (const [tg, sw, key] of [[this.density, 'cf4d', 'layers.cf4DensityMeta'], [this.flow, 'cf4f', 'layers.cf4FlowMeta']] as const) {
       if (!tg.cfg) continue;
       if (this.status === 'missing' || this.status === 'error') continue;
       const n = this.meta?.streams.lines ?? 0;
       rows.push({ id: tg.cfg.id, title: title(tg.cfg), swatch: sw, loading,
-        meta: `${loading ? t('layers.loading') : t(key, { n: fmtFixed(n, 0), h0 })}${cred(tg.cfg)}`,
+        meta: `${loading ? t('layers.loading') : t(key, { n, nText: fmtFixed(n, 0), h0 })}${cred(tg.cfg)}`,
         checked: tg.visible, opacity: tg.opacity, onOpacity: (v) => (tg.opacity = v) });
     }
     if (this.groupsCfg && this.groupsStatus !== 'missing' && this.groupsStatus !== 'error') {
       const s = this.groups;
       rows.push({ id: this.groupsCfg.id, title: title(this.groupsCfg), swatch: 'groups', loading: this.groupsStatus !== 'ready',
-        meta: `${this.groupsStatus === 'ready' ? t('layers.groupsMeta', { n: fmtFixed(this.groupEntries.length, 0) }) : t('layers.loading')}${cred(this.groupsCfg)}`,
+        meta: `${this.groupsStatus === 'ready' ? t('layers.groupsMeta', { n: this.groupEntries.length, nText: fmtFixed(this.groupEntries.length, 0) }) : t('layers.loading')}${cred(this.groupsCfg)}`,
         checked: s.visible, opacity: s.opacity, onOpacity: (v) => (s.opacity = v) });
     }
     return rows;
@@ -370,7 +370,7 @@ export class CosmographyFeature {
       [t('cosmo.row.basin'), basin ? tOr(`cosmo.basin.${basin}`, basin) : t('cosmo.val.noBasin')],
       [t('row.distance'), formatDistance(d, 3)],
       [t('cosmo.row.cf4Scale'), t('cosmo.val.cf4Scale', { d: formatDistance(cf4ScalePc(d, m), 3), h0: fmtFixed(m.scale.H0_cf4, 1) })],
-      [t('cosmo.row.sg'), `${f1(hit.sg[0])}, ${f1(hit.sg[1])}, ${f1(hit.sg[2])} h⁻¹ Mpc`],
+      [t('cosmo.row.sg'), `${f1(hit.sg[0])}, ${f1(hit.sg[1])}, ${f1(hit.sg[2])} ${t('facts.unit.hmpc')}`],
       [t('row.galactic'), `${fmtFixed(lb.l, 1)}°, ${fmtFixed(lb.b, 1)}°`],
     ];
     return {

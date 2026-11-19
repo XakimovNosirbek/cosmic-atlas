@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -56,15 +57,16 @@ def stage(layer_dir: Path, dest: Path, shard: int, layer: str) -> int:
     if "nodes" not in meta:
         sys.exit(f"{layer_dir} is not an octree layer")
     root = dest / layer
+    if root.exists():
+        shutil.rmtree(root)  # never keep stale hardlinks or removed node files from an earlier build
     (root / "n").mkdir(parents=True, exist_ok=True)
-    os.link(layer_dir / "meta.json", root / "meta.json") if not (root / "meta.json").exists() else None
+    os.link(layer_dir / "meta.json", root / "meta.json")
     n = 0
     for f in sorted((layer_dir / "n").iterdir()):
         name = f.name.split(".")[0]
         d = root / "n" / name[:shard]
         d.mkdir(exist_ok=True)
-        if not (d / f.name).exists():
-            os.link(f, d / f.name)
+        os.link(f, d / f.name)
         n += 1
     (dest / "README.md").write_text(CARD.replace("{shard}", str(shard)))
     return n

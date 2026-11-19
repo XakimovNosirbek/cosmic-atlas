@@ -112,16 +112,21 @@ export class NavController {
     return { right, up, back };
   }
 
+  private readonly rotM = new THREE.Matrix4();
+  private readonly basisR = new THREE.Vector3();
+  private readonly basisU = new THREE.Vector3();
+  private readonly basisB = new THREE.Vector3();
+
   /** push the orientation into the three.js camera (which stays at the origin) */
   applyToCamera() {
     const { right, up, back } = this.basis();
-    const m = new THREE.Matrix4().makeBasis(
-      new THREE.Vector3(...right),
-      new THREE.Vector3(...up),
-      new THREE.Vector3(...back),
+    this.rotM.makeBasis(
+      this.basisR.set(right[0], right[1], right[2]),
+      this.basisU.set(up[0], up[1], up[2]),
+      this.basisB.set(back[0], back[1], back[2]),
     );
     this.camera.position.set(0, 0, 0);
-    this.camera.quaternion.setFromRotationMatrix(m);
+    this.camera.quaternion.setFromRotationMatrix(this.rotM);
     this.camera.updateMatrixWorld(true);
   }
 
@@ -174,7 +179,7 @@ export class NavController {
     let changed = false;
     if (this.flight) {
       const f = this.flight;
-      const raw = Math.min(1, (performance.now() - f.t0) / f.dur);
+      const raw = f.dur <= 0 ? 1 : Math.min(1, (performance.now() - f.t0) / f.dur);
       const t = easeInOut(raw);
       const { pan, dist } = f.path.at(t);
       const v = this.view;
@@ -368,6 +373,8 @@ export class NavController {
   private onKeyDown = (e: KeyboardEvent) => {
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (document.querySelector('dialog[open]') || document.getElementById('tours-menu')?.hidden === false) return;
+    if (document.body.classList.contains('has-docs') && (!t || t.closest('#docs') || window.innerWidth <= 640)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (['w', 'a', 's', 'd', 'q', 'e', '+', '=', '-', '_', 'shift', 'arrowleft', 'arrowright', 'arrowup', 'arrowdown'].includes(k)) {

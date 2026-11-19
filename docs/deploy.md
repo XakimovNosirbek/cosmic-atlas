@@ -157,16 +157,3 @@ public mirror of the full set for people who want the data, not as the site's or
 [^r2p]: R2 pricing, https://developers.cloudflare.com/r2/pricing/
 [^r2pub]: R2 public buckets, https://developers.cloudflare.com/r2/buckets/public-buckets/ and limits, https://developers.cloudflare.com/r2/platform/limits/
 [^r2c]: R2 CORS, https://developers.cloudflare.com/r2/buckets/cors/
-
-[^lim]: GitHub Pages limits, https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits (read 2026-11-13)
-[^about]: About GitHub Pages, https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages
-[^vis]: Changing the visibility of your GitHub Pages site, https://docs.github.com/en/enterprise-cloud@latest/pages/getting-started-with-github-pages/changing-the-visibility-of-your-github-pages-site
-[^wf]: Using custom workflows with GitHub Pages, https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages
-[^big]: About large files on GitHub, https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github
-[^rel]: About releases, https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases
-[^hfs]: Hugging Face storage limits, https://huggingface.co/docs/hub/storage-limits
-[^hfr]: Hugging Face Hub rate limits, https://huggingface.co/docs/hub/rate-limits (table dated September 2025; free tiers "subject to change")
-[^hfc]: Hugging Face content policy, https://huggingface.co/content-policy
-[^r2p]: R2 pricing, https://developers.cloudflare.com/r2/pricing/
-[^r2pub]: R2 public buckets, https://developers.cloudflare.com/r2/buckets/public-buckets/ and limits, https://developers.cloudflare.com/r2/platform/limits/
-[^r2c]: R2 CORS, https://developers.cloudflare.com/r2/buckets/cors/

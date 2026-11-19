@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uz">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -50,37 +50,39 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="18" r="2.2" /><circle cx="18" cy="6" r="2.2" /><path d="M8 17c4-1 2-6 5-8s4-1 4-1" /></svg>
           <span class="tours-label" data-i18n="tours.button">Tours</span>
         </button>
-        <div id="lang" class="lang" role="group" aria-label="Language"></div>
+        <div id="lang" class="lang" role="group" aria-label="Language" data-i18n-attr="aria-label:lang.label"></div>
       </div>
       <p id="search-status" class="status" role="status" aria-live="polite"></p>
     </header>
 
     <aside id="layers" class="panel layers" aria-labelledby="layers-title">
-      <button id="layers-toggle" class="panel-head" type="button" aria-expanded="true" aria-controls="layers-body">
-        <h2 id="layers-title" data-i18n="layers.title">Layers</h2>
-        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-      </button>
+      <h2 id="layers-title" class="panel-heading">
+        <button id="layers-toggle" class="panel-head" type="button" aria-expanded="true" aria-controls="layers-body">
+          <span data-i18n="layers.title">Layers</span>
+          <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </button>
+      </h2>
       <div id="layers-body" class="panel-body">
         <ul id="layer-list" class="layer-list"></ul>
         <p id="layer-missing" class="fine"></p>
         <details class="settings">
           <summary data-i18n="layers.display">Display</summary>
           <label class="field">
-            <span><span data-i18n="layers.exposure">Exposure</span> <output id="exposure-out"></output></span>
+            <span><span data-i18n="layers.exposure">Exposure</span> <output id="exposure-out" for="exposure"></output></span>
             <input id="exposure" type="range" min="-4" max="6" step="0.25" value="0" />
           </label>
           <label class="field">
-            <span><span data-i18n="layers.budget">Point budget</span> <output id="budget-out"></output></span>
+            <span><span data-i18n="layers.budget">Point budget</span> <output id="budget-out" for="budget"></output></span>
             <input id="budget" type="range" min="0.5" max="12" step="0.5" value="4" />
           </label>
           <label class="field">
-            <span><span data-i18n="layers.detail">Detail</span> <output id="detail-out"></output></span>
+            <span><span data-i18n="layers.detail">Detail</span> <output id="detail-out" for="detail"></output></span>
             <input id="detail" type="range" min="60" max="400" step="10" value="140" />
           </label>
           <label class="check" data-i18n-attr="title:layers.slabHint">
             <input id="slab-on" type="checkbox" /> <span data-i18n="layers.slab">Thin slab</span></label>
           <label class="field">
-            <span><span data-i18n="layers.slabHalf">Slab half-thickness</span> <output id="slab-out">±80 Mpc</output></span>
+            <span><span data-i18n="layers.slabHalf">Slab half-thickness</span> <output id="slab-out" for="slab">±80 Mpc</output></span>
             <input id="slab" type="range" min="10" max="300" step="5" value="80" disabled />
           </label>
           <label class="check"><input id="labels-on" type="checkbox" checked /> <span data-i18n="layers.labels">Labels</span></label>
@@ -161,7 +163,7 @@
 
     <aside id="docs" class="docs" role="dialog" aria-modal="false" aria-labelledby="docs-title" hidden>
       <div class="docs-bar">
-        <button id="docs-back" class="icon-btn" type="button" aria-label="Back" hidden>
+        <button id="docs-back" class="icon-btn" type="button" aria-label="Back" data-i18n-attr="aria-label:docs.back" hidden>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
         </button>
         <button id="docs-home" class="docs-home" type="button">

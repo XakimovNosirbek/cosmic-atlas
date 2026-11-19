@@ -40,6 +40,7 @@ export class StatesPanel {
       </form>
       <ol class="st-list"></ol>
       <p class="fine st-empty"></p>
+      <p class="fine st-status" role="status" aria-live="polite"></p>
       <div class="st-actions">
         <button type="button" class="btn st-play"></button>
         <button type="button" class="btn st-story-link"></button>
@@ -62,15 +63,26 @@ export class StatesPanel {
       if (!this.list.length) return;
       const url = `${location.origin}${location.pathname}${location.search}#story=${encodeStory(this.list)}`;
       const ok = await this.host.copy(url);
-      this.host.status(ok ? t('states.storyCopied') : t('status.copyFailed'), ok ? undefined : 'warn');
+      this.notice(ok ? t('states.storyCopied') : t('status.copyFailed'), ok ? undefined : 'warn');
     });
     document.body.appendChild(d);
     this.relabel();
   }
 
+  private notice(msg: string, kind?: 'warn') {
+    const s = this.el.querySelector<HTMLElement>('.st-status');
+    if (s) {
+      s.textContent = msg;
+      s.dataset.tone = kind ?? 'info';
+    }
+    this.host.status(msg, kind);
+  }
+
   open() {
     this.list = loadStates();
     this.render();
+    const s = this.el.querySelector<HTMLElement>('.st-status');
+    if (s) s.textContent = '';
     this.input.value = '';
     this.input.placeholder = t('states.defaultName', { n: this.list.length + 1 });
     this.el.showModal();
@@ -93,12 +105,12 @@ export class StatesPanel {
   /** save the current view (also the debug hook's entry point) */
   save(name?: string): SavedState | null {
     if (this.list.length >= MAX_STATES) {
-      this.host.status(t('states.full', { n: MAX_STATES }), 'warn');
+      this.notice(t('states.full', { n: MAX_STATES }), 'warn');
       return null;
     }
     const s: SavedState = { name: cleanName(name ?? this.input.value) || t('states.defaultName', { n: this.list.length + 1 }), hash: this.host.currentHash() };
     this.list.push(s);
-    if (!storeStates(this.list)) this.host.status(t('states.notStored'), 'warn');
+    if (!storeStates(this.list)) this.notice(t('states.notStored'), 'warn');
     this.input.value = '';
     this.input.placeholder = t('states.defaultName', { n: this.list.length + 1 });
     this.render();
@@ -139,7 +151,7 @@ export class StatesPanel {
       link.addEventListener('click', async () => {
         const url = `${location.origin}${location.pathname}${location.search}${s.hash}`;
         const ok = await this.host.copy(url);
-        this.host.status(ok ? t('status.copied') : t('status.copyFailed'), ok ? undefined : 'warn');
+        this.notice(ok ? t('status.copied') : t('status.copyFailed'), ok ? undefined : 'warn');
       });
       const del = document.createElement('button');
       del.type = 'button';
@@ -147,7 +159,10 @@ export class StatesPanel {
       del.textContent = t('states.delete');
       del.setAttribute('aria-label', `${t('states.delete')}: ${s.name}`);
       del.addEventListener('click', () => this.remove(i));
-      li.append(go, meta, link, del);
+      const row = document.createElement('div');
+      row.className = 'st-row';
+      row.append(go, meta, link, del);
+      li.append(row);
       this.ol.appendChild(li);
     });
     (this.el.querySelector('.st-empty') as HTMLElement).hidden = this.list.length > 0;

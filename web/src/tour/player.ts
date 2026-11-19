@@ -136,7 +136,8 @@ export class TourPlayer {
 
   /** time spent at this stop, 0..1 */
   progress(f: number) {
-    this.q<HTMLElement>('.tp-progress span').style.transform = `scaleX(${f.toFixed(4)})`;
+    const v = Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : 0;
+    this.q<HTMLElement>('.tp-progress span').style.transform = `scaleX(${v.toFixed(4)})`;
   }
 
   /** re-render in the current language */
@@ -156,6 +157,7 @@ export class TourPlayer {
     const tg = e.target as HTMLElement | null;
     if (tg && (tg.tagName === 'INPUT' || tg.tagName === 'TEXTAREA' || tg.tagName === 'SELECT' || tg.isContentEditable)) return;
     if (tg?.closest('#docs, dialog[open], #tours-menu')) return; // the reader and dialogs keep their own keys
+    if (document.querySelector('dialog[open]') || document.getElementById('tours-menu')?.hidden === false) return;
     const k = e.key;
     let run: (() => void) | null = null;
     if (k === 'Escape') run = this.onClose;

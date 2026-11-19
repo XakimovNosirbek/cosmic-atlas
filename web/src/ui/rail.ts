@@ -51,8 +51,9 @@ export class ScaleRail {
     el.addEventListener('pointercancel', end);
     el.addEventListener('keydown', (e) => {
       const step = e.shiftKey ? 1 : 0.25;
-      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') this.onPick(this.value + step, true);
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') this.onPick(this.value - step, true);
+      const clamp = (v: number) => Math.min(RAIL_MAX, Math.max(RAIL_MIN, v));
+      if (e.key === 'ArrowRight' || e.key === 'ArrowUp') this.onPick(clamp(this.value + step), true);
+      else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') this.onPick(clamp(this.value - step), true);
       else if (e.key === 'Home') this.onPick(RAIL_MIN, true);
       else if (e.key === 'End') this.onPick(RAIL_MAX, true);
       else return;
@@ -67,6 +68,7 @@ export class ScaleRail {
 
   private fromX(x: number) {
     const r = this.el.getBoundingClientRect();
+    if (!r.width) return this.value;
     const f = Math.min(1, Math.max(0, (x - r.left) / r.width));
     return RAIL_MIN + f * (RAIL_MAX - RAIL_MIN);
   }
@@ -110,8 +112,9 @@ export class ScaleRail {
 
   set(logD: number, text: string) {
     this.value = logD;
-    this.mark.style.left = `${this.frac(Math.min(RAIL_MAX, Math.max(RAIL_MIN, logD))) * 100}%`;
-    this.el.setAttribute('aria-valuenow', logD.toFixed(2));
+    const clamped = Math.min(RAIL_MAX, Math.max(RAIL_MIN, logD));
+    this.mark.style.left = `${this.frac(clamped) * 100}%`;
+    this.el.setAttribute('aria-valuenow', clamped.toFixed(2));
     this.el.setAttribute('aria-valuetext', text);
   }
 }

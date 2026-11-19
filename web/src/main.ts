@@ -13,7 +13,7 @@ import {
   catalogKey, isPointLayer, loadCatalogs, loadManifest, loadTilesIndex, type CatalogEntry, type LayerConfig, type Manifest, type ModelLayerConfig, type TilesIndex,
 } from './data/manifest';
 import { DEFAULT_TILE_BASE, applyTileBase, resolveTileBase } from './data/tilebase';
-import { normName, resolveSesame, searchCatalog, viewDistanceFor, type Resolved } from './data/resolve';
+import { normName, resolveSesame, viewDistanceFor, type Resolved } from './data/resolve';
 import { LazyDocsPanel, loadArticleLazy } from './docs/lazy';
 import { decimalSep, fmtFixed, getLang, initLang, onLangChange, t, tOr } from './i18n';
 import { applyI18n, mountLangSwitch } from './i18n/dom';
@@ -149,6 +149,11 @@ export class App {
   /** re-renders the open info card (language change) */
   private infoRefresh: (() => void) | null = null;
   private infoToken = 0;
+  private pointToken = 0;
+  private sesameAbort: AbortController | null = null;
+  private readonly sunViewVec = new THREE.Vector3();
+  private readonly projVec = new THREE.Vector3();
+  private lastOverlayKey = '';
   private refreshOutputs: () => void = () => {};
   // --- Solar System hook
   solar = new SolarSystem();
@@ -204,8 +209,23 @@ export class App {
       this.status(t('status.noGpu', { msg: (e as Error).message }), 'warn');
       return;
     }
-    const be = (this.renderer as unknown as { backend: { isWebGPUBackend?: boolean } }).backend;
+    const be = (this.renderer as unknown as { backend: { isWebGPUBackend?: boolean; device?: GPUDevice } }).backend;
     this.backend = be.isWebGPUBackend ? 'WebGPU' : 'WebGL2';
+    if (be.device) {
+      void be.device.lost.then((info) => {
+        this.inFlight = 0;
+        if (info.reason !== 'destroyed') this.status(t('status.noGpu', { msg: info.message || 'GPU device lost' }), 'warn');
+      });
+    } else {
+      canvas.addEventListener('webglcontextlost', (e) => {
+        e.preventDefault();
+        this.status(t('status.noGpu', { msg: 'WebGL context lost' }), 'warn');
+      });
+      canvas.addEventListener('webglcontextrestored', () => {
+        this.status('');
+        this.dirty = true;
+      });
+    }
     // star orbits: one compute pass per epoch change on WebGPU (?orbits=vertex: in the vertex shader, as on WebGL2)
     orbitConfig.compute = this.backend === 'WebGPU' && new URLSearchParams(location.search).get('orbits') !== 'vertex';
     this.renderer.setClearColor(0x000000, 0);
@@ -316,10 +336,12 @@ export class App {
     applyI18n();
     this.rail?.build();
     if (this.manifest) this.renderLayerPanel();
+    if (this.hereLabel) this.hereLabel.name = t('showme.pin');
     if (this.labels) this.buildLabels();
     this.refreshOutputs();
     this.timebar?.relabel();
     this.statesPanel?.relabel();
+    this.bh?.hud.relabel();
     if (!$('info').hidden) this.infoRefresh?.();
     this.tours?.relabel();
     if (this.toursMenu?.isOpen) void this.toursMenu.render();
@@ -390,8 +412,11 @@ export class App {
   private updateSuperseded(known?: Set<string>) {
     for (const L of this.layers) {
       if (!L.cfg.fallbackFor) continue;
-      const real = this.layers.find((o) => o.cfg.id === L.cfg.fallbackFor);
-      L.superseded = !!real && (real.status === 'ready' || (real.status === 'pending' && (!known || known.has(real.cfg.path.replace(/\/$/, '').split('/').pop()!))));
+      const targets = Array.isArray(L.cfg.fallbackFor) ? L.cfg.fallbackFor : [L.cfg.fallbackFor];
+      L.superseded = targets.some((id) => {
+        const real = this.layers.find((o) => o.cfg.id === id);
+        return !!real && (real.status === 'ready' || (real.status === 'pending' && (!known || known.has(real.cfg.path.replace(/\/$/, '').split('/').pop()!))));
+      });
     }
   }
 
@@ -500,10 +525,10 @@ export class App {
       li.dataset.id = opts.id;
       li.dataset.sig = sig;
       if (opts.loading) li.setAttribute('aria-busy', 'true');
-      const cid = `lyr-${opts.id}`;
+      const cid = `lyr-${esc(opts.id)}`;
       li.innerHTML = `
         <label class="layer-row" for="${cid}">
-          <span class="swatch ${opts.swatch}" aria-hidden="true"></span>
+          <span class="swatch ${esc(opts.swatch)}" aria-hidden="true"></span>
           <span class="layer-title"><b></b></span>
           <input id="${cid}" class="toggle" type="checkbox" role="switch" />
         </label>
@@ -691,6 +716,7 @@ export class App {
   /** --- Black hole hook: fetch the module, then lens pipeline, HUD; flights and re-renders go through the app */
   private loadBlackHoles(): Promise<void> {
     this.bhReady ??= import('./blackhole').then((m) => {
+      if (!m?.BlackHoleFeature) throw new Error('black hole chunk did not load');
       const bh = new m.BlackHoleFeature();
       bh.attach(this.post, this.backend);
       bh.onChange = () => (this.dirty = true);
@@ -702,7 +728,10 @@ export class App {
       this.bh = bh;
       if (!$('info').hidden) this.infoRefresh?.(); // a card opened meanwhile gets its "Experience it" button
       this.dirty = true;
-    }).catch((e) => console.error(`[black holes] module not loaded: ${(e as Error).message}`));
+    }).catch((e) => {
+      this.bhReady = null; // allow a later attempt (tour click or card open) to retry
+      console.error(`[black holes] module not loaded: ${(e as Error).message}`);
+    });
     return this.bhReady;
   }
 
@@ -846,7 +875,8 @@ export class App {
     }
     this.labels.modelOpacity = this.mwFade * (this.mw.visible ? 1 : 0);
     if (want || this.labels.animating) this.labels.update(this.camera, cam, D, window.innerWidth, window.innerHeight, this.occluders(), dt);
-    this.updateOverlay(cam);
+    if (want || this.selection) this.updateOverlay(cam);
+    else if (this.lastOverlayKey !== 'none') this.updateOverlay(cam);
     if (t - this.lastUi > 120) {
       this.lastUi = t;
       this.updateReadouts(D, this.streamer.stats);
@@ -878,7 +908,7 @@ export class App {
     const slabHalf = this.slabMpc > 0 ? this.slabMpc * 1e6 : SLAB_OFF;
     if (densityMix > 0) this.updateDensityExposure(cam, pxPerRad, dt);
     // view-space Sun, for line-of-sight streaks (float64 rotate, then narrow)
-    const sunView = new THREE.Vector3(-cam[0], -cam[1], -cam[2]).applyMatrix4(this.camera.matrixWorldInverse);
+    const sunView = this.sunViewVec.set(-cam[0], -cam[1], -cam[2]).applyMatrix4(this.camera.matrixWorldInverse);
     for (const L of this.layers) {
       const u = L.uniforms;
       const ae = AUTO_EXPOSURE[L.kind];
@@ -924,7 +954,7 @@ export class App {
       const dev = (this.renderer as unknown as { backend: { device?: GPUDevice } }).backend.device;
       if (dev) {
         this.inFlight++;
-        dev.queue.onSubmittedWorkDone().then(() => (this.inFlight = Math.max(0, this.inFlight - 1)));
+        void dev.queue.onSubmittedWorkDone().catch(() => {}).finally(() => (this.inFlight = Math.max(0, this.inFlight - 1)));
       }
     }
   }
@@ -1020,7 +1050,7 @@ export class App {
       // lite tile sets: resolvable light whose points were dropped from the set
       const drop = Object.entries(st.dropped).filter(([, v]) => Number.isFinite(v) && v > 0.0005).sort((a, b) => b[1] - a[1]);
       const M = (n: number) => t('num.millionShort', { n: fmtNum(n / 1e6, 3) });
-      const row = (k: string, v: string | number) => `<span>${t(k)}</span><b>${v}</b>`;
+      const row = (k: string, v: string | number) => `<span>${esc(t(k))}</span><b>${esc(String(v))}</b>`;
       stats.innerHTML =
         row('stats.renderer', this.backend) +
         row('stats.fps', this.fps < 0.5 ? t('stats.idle') : this.fps.toFixed(0)) +
@@ -1053,7 +1083,7 @@ export class App {
   }
 
   project(p: Vec3, cam: Vec3): { x: number; y: number } | null {
-    const v = new THREE.Vector3(p[0] - cam[0], p[1] - cam[1], p[2] - cam[2]).applyMatrix4(this.camera.matrixWorldInverse);
+    const v = this.projVec.set(p[0] - cam[0], p[1] - cam[1], p[2] - cam[2]).applyMatrix4(this.camera.matrixWorldInverse);
     if (v.z >= 0) return null; // behind the camera (NDC z alone rounds to 1 with a tiny near plane)
     v.applyMatrix4(this.camera.projectionMatrix);
     if (v.z > 1 || v.z < -1) return null;
@@ -1067,10 +1097,14 @@ export class App {
     const s = this.selection;
     const c = s ? this.project(s.xyz, cam) : null;
     if (!s || !c) {
-      r.style.display = 'none';
-      svg.style.display = 'none';
+      if (this.lastOverlayKey !== 'none') {
+        r.style.display = 'none';
+        svg.style.display = 'none';
+        this.lastOverlayKey = 'none';
+      }
       return;
     }
+    this.lastOverlayKey = `${c.x.toFixed(1)},${c.y.toFixed(1)}`;
     r.style.display = 'block';
     r.style.transform = `translate(${c.x.toFixed(1)}px, ${c.y.toFixed(1)}px)`;
     const d = Math.hypot(...s.xyz);
@@ -1160,10 +1194,15 @@ export class App {
   /** --- Cosmography hook: the CF4 overdensity under CSS pixel (cx, cy) -> info card; false when there is none */
   showCosmoAt(cx: number, cy: number, fly: boolean): boolean {
     const v = new THREE.Vector3((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1, 0.5).unproject(this.camera).sub(this.camera.position).normalize();
-    const c = this.cosmo.pickVolume(this.nav.camPos(), [v.x, v.y, v.z]);
+    const cam = this.nav.camPos();
+    const dir: Vec3 = [v.x, v.y, v.z];
+    const c = this.cosmo.pickVolume(cam, dir);
     if (!c) return false;
     this.selection = { xyz: c.fly.focus, title: c.title, fly: c.fly, ref: null };
-    this.infoRefresh = () => this.showCosmoAt(cx, cy, false);
+    this.infoRefresh = () => {
+      const c2 = this.cosmo.pickVolume(cam, dir);
+      if (c2) this.openInfo({ ...c2, italic: false, doc: 'laniakea' });
+    };
     this.openInfo({ ...c, italic: false, doc: 'laniakea' });
     if (fly) void this.nav.flyTo(c.fly);
     return true;
@@ -1188,6 +1227,7 @@ export class App {
 
   /** `x0` = the catalogue position (epoch 0); the card shows the point at the current star epoch */
   private async showPoint(n: TileNode, i: number, x0: Vec3, fly: boolean, lum: number) {
+    const my = ++this.pointToken;
     const L = n.layer;
     const kind = L.kind;
     // --- Clusters hook: a star-clusters point opens the cluster's catalogue card; the few points that
@@ -1201,6 +1241,7 @@ export class App {
       }
       let x: ReturnType<typeof readExtRecord> | null = null;
       try { x = readExtRecord(await L.loadExt(n), i, L.extStride); } catch { /* card without id */ }
+      if (my !== this.pointToken) return;
       const c = clusterPointCard({ id: x ? x.id.toString() : '', xyz: x0, lo: x?.distLo, hi: x?.distHi });
       const rd = galToRadec(x0);
       const flyC: Partial<View> = { focus: x0, dist: 25 };
@@ -1214,6 +1255,7 @@ export class App {
     // --- star epoch: velocity (relative to the Sun) and the position at the slider time
     const ep = this.epoch.myr;
     const velAll = L.hasVelocity ? await this.streamer.velocities(n) : null;
+    if (my !== this.pointToken) return;
     const sv = L.meta?.velocity?.sunVelocity ?? [0, 0, 0];
     const vel: Vec3 | null = velAll ? [velAll[i * 4] - sv[0], velAll[i * 4 + 1] - sv[1], velAll[i * 4 + 2] - sv[2]] : null;
     const q = velAll ? velAll[i * 4 + 3] : NaN;
@@ -1234,6 +1276,7 @@ export class App {
     } catch (e) {
       rows.push([t('row.catalogueRecord'), t('row.unavailable', { msg: (e as Error).message })]);
     }
+    if (my !== this.pointToken) return;
     // the deep link keeps the catalogue position (it finds the octree node); the reticle follows the
     // moved star; the distance error bar is for today's line of sight, so it is not drawn when moved
     const ref: SelRef | null = ext ? { type: 'point', layer: L.cfg.id, id: ext.id.toString(), xyz: x0 } : null;
@@ -1419,7 +1462,11 @@ export class App {
       dt.textContent = k;
       const dd = document.createElement('dd');
       dd.textContent = v;
-      if (copyable.has(k)) dd.append(copyButton(v.replace(/°/g, ''), t('info.copyValue', { what: k })));
+      if (copyable.has(k)) {
+        // canonical dot-decimal coordinates so pasted text works in Search / SIMBAD in every language
+        const canon = v.replace(/°/g, '').replace(/(\d),(\d)/g, '$1.$2').replace(/\u00a0/g, ' ');
+        dd.append(copyButton(canon, t('info.copyValue', { what: k })));
+      }
       dl.append(dt, dd);
     }
     $('info-note').textContent = o.note;
@@ -1430,7 +1477,7 @@ export class App {
       a.href = href;
       if (!href.startsWith('#')) { // --- GW hook: in-atlas links (#focus=) stay in this tab
         a.target = '_blank';
-        a.rel = 'noopener';
+        a.rel = 'noopener noreferrer';
       }
       a.innerHTML = `<span></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>`;
       a.querySelector('span')!.textContent = label;
@@ -1506,7 +1553,8 @@ export class App {
       let xyz = ref.xyz;
       if (n.state === NodeState.Loaded && n.data) lum = n.data.rgbl[i * 4 + 3];
       else {
-        const r = await fetch(L.url(`n/${n.meta.name}.bin`));
+        const r = await fetch(L.nodeUrl(n.meta, '.bin'));
+        if (!r.ok) continue;
         const rec = parseRenderRecords(await r.arrayBuffer(), n.meta.count);
         lum = rec.rgbl[i * 4 + 3];
         const c = n.meta.center;
@@ -1606,6 +1654,11 @@ export class App {
     let active = -1;
     let items: { label: string; run: () => void }[] = [];
 
+    const syncActive = () => {
+      [...list.children].forEach((el, i) => el.setAttribute('aria-selected', String(i === active)));
+      input.setAttribute('aria-activedescendant', active >= 0 ? `sg-${active}` : '');
+      if (active >= 0) (list.children[active] as HTMLElement | undefined)?.scrollIntoView({ block: 'nearest' });
+    };
     const render = () => {
       list.textContent = '';
       items.forEach((it, i) => {
@@ -1614,10 +1667,9 @@ export class App {
         li.setAttribute('role', 'option');
         li.setAttribute('aria-selected', String(i === active));
         li.innerHTML = it.label;
-        li.addEventListener('pointerdown', (e) => {
-          e.preventDefault();
-          choose(i);
-        });
+        // prevent input blur on mouse click without hijacking touch scrolling on mobile
+        li.addEventListener('mousedown', (e) => e.preventDefault());
+        li.addEventListener('click', () => choose(i));
         list.appendChild(li);
       });
       list.hidden = items.length === 0;
@@ -1637,7 +1689,12 @@ export class App {
     };
     input.addEventListener('input', update);
     input.addEventListener('focus', update);
-    input.addEventListener('blur', () => setTimeout(() => ((items = []), render()), 120));
+    input.addEventListener('blur', () => setTimeout(() => {
+      if (document.activeElement !== input) {
+        items = [];
+        render();
+      }
+    }, 180));
     input.addEventListener('keydown', (e) => {
       if (e.key === 'ArrowDown') active = Math.min(items.length - 1, active + 1);
       else if (e.key === 'ArrowUp') active = Math.max(-1, active - 1);
@@ -1645,8 +1702,8 @@ export class App {
         e.preventDefault();
         const q = input.value.trim();
         if (active >= 0) choose(active);
-        else if (items.length > 1 || (items.length === 1 && !searchCatalog(this.catalog, q).length)) choose(0);
-        else if (!items.length && q) {
+        else if (items.length) choose(0);
+        else if (q) {
           items = [...this.coordSuggestion(q), ...buildSuggestions(q, this.catalog).map((s) => this.suggestionRow(s))];
           choose(0);
         }
@@ -1659,10 +1716,11 @@ export class App {
         return;
       } else return;
       e.preventDefault();
-      render();
+      syncActive();
     });
     window.addEventListener('keydown', (e) => {
-      if (e.key === '/' && document.activeElement !== input && !(e.target as HTMLElement).closest('input,textarea')) {
+      if (document.querySelector('dialog[open]') || this.toursMenu?.isOpen) return;
+      if (e.key === '/' && document.activeElement !== input && !(e.target as HTMLElement).closest('input,textarea,select,[contenteditable]')) {
         e.preventDefault();
         input.focus();
       }
@@ -1738,7 +1796,10 @@ export class App {
     $('info-close').addEventListener('click', () => this.closeInfo());
     $('showme').addEventListener('click', () => void this.showMe());
     this.initTours();
-    $('home').addEventListener('click', () => void this.nav.flyTo({ focus: [0, 0, 0], dist: 6 }));
+    $('home').addEventListener('click', () => {
+      this.stopTour(false);
+      void this.nav.flyTo({ focus: [0, 0, 0], dist: 6 });
+    });
     $('copy-link').addEventListener('click', async () => {
       this.writeHash();
       try {
@@ -1794,7 +1855,8 @@ export class App {
       ? radecDistToGal(c.ra, c.dec, 1)
       : [Math.cos(c.b / DEG) * Math.cos(c.l / DEG), Math.cos(c.b / DEG) * Math.sin(c.l / DEG), Math.sin(c.b / DEG)]; // DEG = 180/π
     const rd = c.frame === 'icrs' ? { ra: c.ra, dec: c.dec } : galToRadec(dir);
-    const pos = `${fmtFixed(rd.ra, 5)} ${rd.dec >= 0 ? '+' : ''}${fmtFixed(rd.dec, 5)}`;
+    // canonical dot-decimal coordinates for external SIMBAD / VizieR query parameters
+    const pos = `${rd.ra.toFixed(5)} ${rd.dec >= 0 ? '+' : ''}${rd.dec.toFixed(5)}`;
     const view: Partial<View> = { focus: [0, 0, 0], dist: 1e-3, yaw: Math.atan2(-dir[1], -dir[0]), pitch: Math.asin(-dir[2]) };
     this.selection = { xyz: [dir[0] * 1e3, dir[1] * 1e3, dir[2] * 1e3], title: skyCoordText(c), fly: view, ref: null };
     this.infoRefresh = () => this.showSkyPosition(c);
@@ -1953,14 +2015,19 @@ export class App {
 
   private async sesame(q: string) {
     this.stopTour(false);
+    this.sesameAbort?.abort();
+    const ac = new AbortController();
+    this.sesameAbort = ac;
     this.status(t('status.sesameLooking', { q }));
     let r: Resolved | null = null;
     try {
-      r = await resolveSesame(q);
+      r = await resolveSesame(q, ac.signal);
     } catch (e) {
+      if (ac.signal.aborted) return;
       this.status(t('status.sesameError', { msg: t('status.sesameUnreachable', { msg: (e as Error).message.replace(/^Sesame unreachable \((.*)\)$/, '$1') }) }), 'warn');
       return;
     }
+    if (ac.signal.aborted) return;
     if (!r) {
       this.status(t('status.sesameUnknown', { q }), 'warn');
       return;
@@ -2073,9 +2140,14 @@ export class App {
     } else if (!this.here) {
       this.status(t('showme.denied', { msg: 'no geolocation' }), 'warn');
     }
-    const { SHOW_ME_TOUR, needsHere } = await import('./tour/showme');
-    const tour = this.here ? SHOW_ME_TOUR : { ...SHOW_ME_TOUR, beats: SHOW_ME_TOUR.beats.filter((b) => !needsHere(b)) };
-    await this.runTour(tour);
+    try {
+      const m = await import('./tour/showme');
+      if (!m?.SHOW_ME_TOUR) throw new Error('showme chunk did not load');
+      const tour = this.here ? m.SHOW_ME_TOUR : { ...m.SHOW_ME_TOUR, beats: m.SHOW_ME_TOUR.beats.filter((b) => !m.needsHere(b)) };
+      await this.runTour(tour);
+    } catch {
+      this.status(t('tours.loadFailed'), 'warn');
+    }
   }
 
   /** play a tour (tour/tours.ts, tour/library.ts) with the caption player */
@@ -2085,10 +2157,15 @@ export class App {
 
   /** a tour of the menu by id (also the debug API) */
   async startTour(id: string) {
-    const { TOURS } = await this.tourLibrary();
-    const tour = TOURS.find((x) => x.id === id);
-    if (tour) await this.runTour(tour);
-    return !!tour;
+    try {
+      const { TOURS } = await this.tourLibrary();
+      const tour = TOURS.find((x) => x.id === id);
+      if (tour) await this.runTour(tour);
+      return !!tour;
+    } catch {
+      this.status(t('tours.loadFailed'), 'warn');
+      return false;
+    }
   }
 
   private tourLib: Promise<typeof import('./tour/library')> | null = null;
@@ -2182,10 +2259,14 @@ export class App {
     this.toursMenu.items = async () => {
       const { TOURS } = await this.tourLibrary();
       const ctx = this.tourContext();
-      return TOURS.map((x): MenuItem => ({
-        id: x.id, title: t(x.label), summary: x.summary ? t(x.summary) : '',
-        minutes: Math.max(1, Math.round(tourDurationMs(x, ctx) / 60000)), stops: x.beats.length,
-      }));
+      return TOURS.map((x): MenuItem => {
+        const beats = x.beats.filter((b) => (b.needs ?? []).every((id) => host.layerAvailable(id)));
+        const filtered = beats.length === x.beats.length ? x : { ...x, beats };
+        return {
+          id: x.id, title: t(x.label), summary: x.summary ? t(x.summary) : '',
+          minutes: Math.max(1, Math.round(tourDurationMs(filtered, ctx) / 60000)), stops: beats.length,
+        };
+      });
     };
     this.toursMenu.onPick = (id) => void this.startTour(id);
   }
@@ -2299,11 +2380,24 @@ export class App {
     return def;
   }
 
-  /** go to a named anchor (at=) and, once the flight settles, apply the stored distance and angles */
+  /** go to a named anchor (at=) and, once the flight settles untouched by user input, apply the stored distance and angles */
   private goToAnchor(name: string, look?: { dist: number; yawDeg: number; pitchDeg: number }) {
     if (!this.focusByName(name) || !look) return;
+    let cancelled = false;
+    const prevInput = this.nav.onUserInput;
+    const restore = () => {
+      if (this.nav.onUserInput === onInput) this.nav.onUserInput = prevInput;
+    };
+    const onInput = () => {
+      cancelled = true;
+      restore();
+      prevInput();
+    };
+    this.nav.onUserInput = onInput;
     const apply = () => {
+      if (cancelled) return;
       if (this.nav.flying) return void requestAnimationFrame(apply);
+      restore();
       this.nav.setView({ dist: look.dist, yaw: look.yawDeg / DEG, pitch: look.pitchDeg / DEG });
     };
     requestAnimationFrame(apply);
@@ -2333,7 +2427,10 @@ export class App {
       this.writeHash(); // drop the one-shot focus= from the URL
     }
     if (h.story) return this.playStoryParam(h.story);
-    if (h.layers) for (const [id, on] of Object.entries(h.layers)) if (this.layerVisibility()[id] !== undefined && this.layerVisibility()[id] !== on) this.setLayerVisible(id, on);
+    if (h.layers) {
+      const vis = this.layerVisibility();
+      for (const [id, on] of Object.entries(h.layers)) if (Object.hasOwn(vis, id) && vis[id] !== on) this.setLayerVisible(id, on);
+    }
     const cur = this.selection?.ref;
     if (h.sel && JSON.stringify(h.sel) !== JSON.stringify(cur)) void this.restoreSelection(h.sel);
   }

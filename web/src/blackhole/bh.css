@@ -1,8 +1,8 @@
 /* ---------- black holes up close (src/blackhole) ---------- */
 .bh-hud {
-  position: fixed; left: 16px; bottom: 96px; z-index: 13;
+  position: fixed; left: 16px; bottom: calc(var(--instrument-h, 96px) + 8px); z-index: 13;
   width: min(330px, calc(100vw - 32px)); padding: 12px 14px 12px;
-  max-height: calc(100vh - 200px); overflow-y: auto; overscroll-behavior: contain;
+  max-height: calc(100vh - var(--instrument-h, 96px) - 104px); overflow-y: auto; overscroll-behavior: contain;
 }
 .bh-hud[hidden] { display: none; }
 .bh-hud .kind { margin: 0 0 2px; font-size: 12px; color: var(--ink-dim); }
@@ -40,5 +40,5 @@
 .bh-flamm path.throat { stroke: #e59a8a; stroke-width: 1.4; stroke-opacity: 0.8; }
 .bh-flamm text { fill: #8fb2cf; font: italic 12px var(--serif); text-anchor: middle; paint-order: stroke; stroke: rgba(4, 6, 11, 0.8); stroke-width: 3px; }
 @media (max-width: 640px) {
-  .bh-hud { bottom: 120px; max-height: 46vh; }
+  .bh-hud { bottom: calc(var(--instrument-h, 120px) + 8px); max-height: 46vh; }
 }

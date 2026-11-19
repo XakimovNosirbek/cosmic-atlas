@@ -32,7 +32,7 @@ export function sanitize(list: unknown): SavedState[] {
     const name = typeof x?.name === 'string' ? cleanName(x.name) : '';
     const hash = typeof x?.hash === 'string' ? x.hash : '';
     const h = parseHash(hash);
-    if (!name || !(h.view || h.at)) continue;
+    if (!name || !(h.view || (h.at && h.look))) continue;
     out.push({ name, hash: formatHash({ ...h, focus: undefined, layer: undefined, story: undefined }) });
     if (out.length >= MAX_STATES) break;
   }

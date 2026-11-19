@@ -113,13 +113,16 @@ export class TourRunner {
 
   async start(tour: Tour) {
     this.stop(false);
+    const tok = ++this.tok;
     const h = this.host;
     // beats whose layer data is not there are skipped (e.g. the CF4 flows on a lite deployment)
     const beats = tour.beats.filter((b) => (b.needs ?? []).every((id) => h.layerAvailable(id)));
     if (!beats.length) return;
     const t: Tour = { ...tour, beats };
-    if (beats.some((b) => beatHoles(b).length)) await h.blackHoles();
-    const bh = beats.some((b) => b.bh) ? await h.blackHoles() : null;
+    const needBh = beats.some((b) => beatHoles(b).length);
+    const bh = needBh ? await h.blackHoles() : null;
+    if (tok !== this.tok) return;
+    if (needBh && !bh) return; // black hole module failed to load: do not play broken {bh3_*} captions at 1 pc
     const disks = new Map<string, boolean>();
     for (const b of beats) {
       if (!b.bh || !bh) continue;
@@ -166,6 +169,10 @@ export class TourRunner {
     if (this.ended) return this.go(this.index);
     if (this.paused && this.userMoved) return this.go(this.index); // the camera moved: fly back to this stop
     this.paused = !this.paused;
+    if (this.paused && this.host.nav.flying) {
+      this.host.nav.cancelFlight();
+      this.userMoved = true;
+    }
     this.render();
   }
 
@@ -226,10 +233,12 @@ export class TourRunner {
     const t = this.tour;
     if (!t) return;
     if (t.stayAtEnd) {
-      // keep the camera and the last caption; the scene (layers) goes back unless it is a story
+      // keep the camera and the last caption; keep layers explicitly shown by the final stop (e.g. solar in Show me)
+      const keepOn = new Set(t.beats.at(-1)?.show ?? []);
       this.tok++;
       cancelAnimationFrame(this.raf);
       this.restoreScene(t, false);
+      for (const id of keepOn) this.host.setLayerVisible(id, true);
       this.ended = true;
       this.paused = false;
       this.render();
@@ -266,7 +275,18 @@ export class TourRunner {
     if (tok !== this.tok) return;
     if (this.fadeOn && beat.fade !== 'horizon') this.fade(false);
 
-    // --- the scene of this stop
+    // --- the scene of this stop (reset to baseline first so jumping across stops never leaks slab/clock/layers)
+    const snap = this.snap;
+    if (snap && !t.keepScene) {
+      const now = h.layerVisibility();
+      for (const [id, on] of Object.entries(snap.layers)) if (now[id] !== on) h.setLayerVisible(id, on);
+      if (beat.slab === undefined && h.slab() !== snap.slab) h.setSlab(snap.slab);
+      if (!beat.clock && snap.clock) h.clockRestore(snap.clock);
+      if (bh && (snap.flamm !== null || snap.disks.size)) {
+        if (snap.flamm !== null) bh.flammOn = snap.flamm;
+        for (const [name, on] of snap.disks) bh.setDisk(name, on);
+      }
+    }
     for (const id of beat.show ?? []) h.setLayerVisible(id, true);
     for (const id of beat.hide ?? []) h.setLayerVisible(id, false);
     if (beat.layers) {
@@ -314,6 +334,10 @@ export class TourRunner {
     const h = this.host;
     const nav = h.nav;
     const total = t.narrative ? readMs(text, beat.dwellMs) : this.reduced ? Math.max(4000, beat.dwellMs) : beat.dwellMs;
+    if (total <= 0) {
+      this.player.progress(1);
+      return Promise.resolve(true);
+    }
     const yaw0 = nav.view.yaw;
     const d0 = nav.view.dist;
     const d1 = beat.approach ? resolveDist(beat.approach, ctx) ?? d0 : d0;

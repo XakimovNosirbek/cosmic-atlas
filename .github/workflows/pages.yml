@@ -72,8 +72,8 @@ jobs:
 
       - name: Overlay the catalogues committed in this repo
         # the small named-object catalogues live in git (data/tiles/catalogs), so a catalogue change
-        # does not need a new tile archive; the big point layers still come from LITE_TILES_URL
-        if: vars.LITE_TILES_URL != ''
+        # does not need a new tile archive; also run when neither LITE_TILES_URL nor TILE_BASE is set
+        if: vars.LITE_TILES_URL != '' || vars.TILE_BASE == ''
         run: |
           mkdir -p dist/tiles/catalogs
           cp -R ../data/tiles/catalogs/. dist/tiles/catalogs/

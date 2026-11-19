@@ -43,9 +43,9 @@ export function resolveLang(opts: { search?: string; saved?: string | null; brow
     const p = b.toLowerCase();
     if (p.startsWith('ru')) return 'ru';
     if (p.startsWith('uz')) return 'uz';
-    if (p) return 'en';
+    if (p.startsWith('en')) return 'en';
   }
-  return 'uz';
+  return (opts.browser ?? []).some(Boolean) ? 'en' : 'uz';
 }
 
 function savedLang(): string | null {

@@ -8,7 +8,7 @@ const C = { name: 'Andromeda', hash: '#at=Andromeda%20(M31)&d=3e5,10.0,20.0' };
 
 describe('saved views (state/states.ts)', () => {
   it('keeps well-formed states and drops the rest', () => {
-    const out = sanitize([A, B, C, { name: '', hash: A.hash }, { name: 'x', hash: '#l=dust' }, null, 7, { name: 'y' }]);
+    const out = sanitize([A, B, C, { name: '', hash: A.hash }, { name: 'x', hash: '#l=dust' }, { name: 'nolook', hash: '#at=Saturn' }, null, 7, { name: 'y' }]);
     expect(out.map((s) => s.name)).toEqual([A.name, B.name, C.name]);
     // hashes are re-written in canonical form and one-shot params never survive
     expect(sanitize([{ name: 'z', hash: `${B.hash}&focus=M31&story=abc` }])[0].hash).toBe(B.hash);

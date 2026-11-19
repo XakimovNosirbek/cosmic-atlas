@@ -224,7 +224,7 @@ export function fold(s: string): string {
   return out
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/[ʻʼ'‘’`´ʹ]/g, '')
+    .replace(/[\p{Lm}'‘’‛`´ʹ′]/gu, '')
     .replace(/[^a-z0-9*+]+/g, ' ')
     .trim();
 }

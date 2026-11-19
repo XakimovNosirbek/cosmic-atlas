@@ -27,7 +27,10 @@ function fetchOne(lang: Lang, slug: string): Promise<{ meta: DocMeta; body: stri
   if (!p) {
     p = fetch(`${BASE}${lang}/${slug}.md`)
       .then(async (r) => {
-        if (!r.ok) return null;
+        if (!r.ok) {
+          if (r.status === 429 || r.status >= 500) cache.delete(key); // transient server/rate error: allow retry
+          return null;
+        }
         if ((r.headers.get('content-type') ?? '').includes('text/html')) return null;
         return parseFrontMatter(await r.text());
       })

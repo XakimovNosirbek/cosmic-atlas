@@ -25,6 +25,7 @@ export class LazyDocsPanel {
 
   private load(): Promise<DocsPanel> {
     this.loading ??= import('./panel').then((m) => {
+      if (!m?.DocsPanel) throw new Error('docs panel chunk did not load');
       const p = new m.DocsPanel();
       p.onFocus = (n) => this.onFocus(n);
       p.onLayer = (id) => this.onLayer(id);
@@ -32,6 +33,7 @@ export class LazyDocsPanel {
       this.panel = p;
       return p;
     });
+    this.loading.catch(() => (this.loading = null));
     return this.loading;
   }
 

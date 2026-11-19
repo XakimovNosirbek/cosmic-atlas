@@ -240,7 +240,7 @@ def main() -> None:
         return part
 
     starts = list(range(0, len(ids_all), MER_CHUNK))
-    with cf.ThreadPoolExecutor(max_workers=1 + len(starts)) as ex:
+    with cf.ThreadPoolExecutor(max_workers=min(4, 1 + len(starts))) as ex:
         f_ha = ex.submit(stage, "stage3_halpha", 3 in a.refresh_stage, lambda: to_pandas(run_async(svc, Q_HA)))
         f_mer = [ex.submit(mer_chunk, k, lo) for k, lo in enumerate(starts)]
         ha, m3 = f_ha.result()
@@ -253,7 +253,10 @@ def main() -> None:
     h1 = ha.sort_values("ha_snr", ascending=False).drop_duplicates("object_id")
     spe = gq.merge(h1, on="object_id")
     print(f"SPE cuts together: {len(spe)} objects", flush=True)
-    mer = pd.concat(mer_parts, ignore_index=True)
+    mer = pd.concat(mer_parts, ignore_index=True) if mer_parts else pd.DataFrame(
+        columns=["object_id", "ra", "dec", "point_like_prob", "spurious_prob", "kron_radius",
+                 "flux_h_templfit", "flux_vis_to_h_templfit", "tileid"]
+    )
     n_dup["stage4_mer"] = int(mer["object_id"].duplicated().sum())
     m4 = {"chunks": len(mer_parts), "chunk_size": MER_CHUNK, "uploaded_ids": int(len(ids_all)), "rows": int(len(mer))}
     mer1 = mer.sort_values("kron_radius").drop_duplicates("object_id")

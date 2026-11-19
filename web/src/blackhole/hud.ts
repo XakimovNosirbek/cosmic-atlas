@@ -3,6 +3,7 @@
  * Pure DOM/SVG; nothing here touches the renderer.
  */
 
+import { decimalSep, fmtFixed } from '../i18n';
 import type { Vec3 } from '../math/frames';
 import { fmtSig } from '../objects/facts';
 import type { BlackHole } from './catalog';
@@ -14,7 +15,7 @@ export const QUALITY_STEPS: Record<Quality, number> = { low: 48, medium: 96, hig
 /** spaghettification warning threshold (m/s^2 across 2 m) */
 export const SPAGHETTI_G = 10;
 
-const fmt = (v: number, sig = 3) => fmtSig(v, sig);
+const fmt = (v: number, sig = 3) => fmtSig(v, sig).replace('.', decimalSep());
 
 function clockFace(cls: string): string {
   let ticks = '';
@@ -64,7 +65,7 @@ export class BlackHoleHud {
         <dt class="l-tid"></dt><dd class="v-tid"></dd>
         <dt class="l-hov"></dt><dd class="v-hov"></dd>
       </dl>
-      <p class="bh-warn" role="alert" hidden></p>
+      <p class="bh-warn" role="status" aria-live="polite" hidden></p>
       <div class="bh-clocks">
         <figure>${clockFace('you')}<figcaption><b class="t-you"></b><span class="c-you"></span></figcaption></figure>
         <figure>${clockFace('far')}<figcaption><b class="t-far"></b><span class="c-far"></span></figcaption></figure>
@@ -84,6 +85,11 @@ export class BlackHoleHud {
     this.q<HTMLInputElement>('.cb-disk').addEventListener('change', (e) => this.onDisk((e.target as HTMLInputElement).checked));
     this.q<HTMLInputElement>('.cb-flamm').addEventListener('change', (e) => this.onFlamm((e.target as HTMLInputElement).checked));
     this.q<HTMLSelectElement>('.sel-q').addEventListener('change', (e) => this.onQuality((e.target as HTMLSelectElement).value as Quality));
+    this.relabel();
+  }
+
+  /** update all static labels (called at start and on UI language change) */
+  relabel() {
     this.q('.l-dist').textContent = tr('bh.hud.dist');
     this.q('.l-esc').textContent = tr('bh.hud.escape');
     this.q('.l-tid').textContent = tr('bh.hud.tidal');
@@ -124,18 +130,22 @@ export class BlackHoleHud {
     this.tFar += dt / Math.max(dil, 1e-9);
     const rM = x * h.rsM;
     const rsKm = h.rsM / 1e3;
+    const kmUnit = tr('unit.km');
     this.q('.bh-title').textContent = tr('bh.hud.title', { name: h.name });
-    this.q('.bh-mass').textContent = tr('bh.hud.mass', { mass: fmt(h.massMsun, 4), rs: `${fmt(rsKm, 4)} km` }) + (h.massApprox ? ' *' : '');
-    this.q('.v-dist').textContent = tr('bh.hud.dist.val', { x: x.toFixed(x < 10 ? 2 : x < 1000 ? 1 : 0), km: `${fmt(rM / 1e3, 4)} km` });
+    this.q('.bh-mass').textContent = tr('bh.hud.mass', { mass: fmt(h.massMsun, 4), rs: `${fmt(rsKm, 4)} ${kmUnit}` }) + (h.massApprox ? ' *' : '');
+    this.q('.v-dist').textContent = tr('bh.hud.dist.val', { x: fmtFixed(x, x < 10 ? 2 : x < 1000 ? 1 : 0), km: `${fmt(rM / 1e3, 4)} ${kmUnit}` });
     const ef = escapeFraction(x);
-    this.q('.v-esc').textContent = tr('bh.hud.escape.val', { f: ef.toFixed(4), kms: fmt((ef * C) / 1e3, 4) });
+    this.q('.v-esc').textContent = tr('bh.hud.escape.val', { f: fmtFixed(ef, 4), kms: fmt((ef * C) / 1e3, 4) });
     const tid = tidalAccel(h.rsM, rM, 2);
     this.q('.v-tid').textContent = tr('bh.hud.tidal.val', { a: fmt(tid), g: fmt(tid / G0) });
     this.q('.v-hov').textContent = tr('bh.hud.hover.val', { g: fmt(hoverAccel(h.rsM, rM) / G0) });
     const warn = this.q<HTMLElement>('.bh-warn');
     const spag = tid / G0 > SPAGHETTI_G;
-    warn.hidden = !spag;
-    if (spag) warn.textContent = tr('bh.hud.spaghetti', { g: fmt(tid / G0) });
+    if (warn.hidden === spag) warn.hidden = !spag;
+    if (spag) {
+      const wTxt = tr('bh.hud.spaghetti', { g: fmt(tid / G0) });
+      if (warn.textContent !== wTxt) warn.textContent = wTxt;
+    }
     this.q('.v-tid').classList.toggle('danger', spag);
     // clocks: second hands sweep; the minute hand turns once an hour
     const hand = (cls: string, t: number) => {
@@ -144,10 +154,10 @@ export class BlackHoleHud {
     };
     hand('you', this.tYou);
     hand('far', this.tFar);
-    const clock = (t: number) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0')}`;
+    const clock = (t: number) => `${Math.floor(t / 60).toString().padStart(2, '0')}:${(t % 60).toFixed(1).padStart(4, '0').replace('.', decimalSep())}`;
     this.q('.t-you').textContent = clock(this.tYou);
     this.q('.t-far').textContent = clock(this.tFar);
-    this.q('.bh-ratio').textContent = tr('bh.hud.clock.ratio', { k: (1 / dil).toPrecision(dil > 0.999 ? 7 : 4) });
+    this.q('.bh-ratio').textContent = tr('bh.hud.clock.ratio', { k: fmt(1 / dil, dil > 0.999 ? 7 : 4) });
     const sky = this.q<HTMLElement>('.bh-sky');
     if (sky.hidden === !!s.earthSky) sky.hidden = !s.earthSky;
     if (s.earthSky) {
@@ -155,8 +165,11 @@ export class BlackHoleHud {
       if (sky.textContent !== txt) sky.textContent = txt;
     }
     const fl = this.q<HTMLElement>('.bh-floor');
-    fl.hidden = !s.atFloor;
-    if (s.atFloor) fl.textContent = tr('bh.hud.floor');
+    if (fl.hidden === s.atFloor) fl.hidden = !s.atFloor;
+    if (s.atFloor) {
+      const fTxt = tr('bh.hud.floor');
+      if (fl.textContent !== fTxt) fl.textContent = fTxt;
+    }
     const cbD = this.q<HTMLInputElement>('.cb-disk');
     if (cbD.checked !== s.diskOn) cbD.checked = s.diskOn;
     const cbF = this.q<HTMLInputElement>('.cb-flamm');

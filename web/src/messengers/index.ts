@@ -160,8 +160,8 @@ export class MessengerFeature {
     for (const L of this.markers.values()) {
       const c = L.set.count();
       const meta = L.status === 'pending' ? t('layers.loading')
-        : L.kind === 'frb' ? t('layers.frbMeta', { hosts: c.d3, sky: fmtFixed(c.sky, 0) })
-          : t('layers.neutrinoMeta', { alerts: fmtFixed(c.sky, 0), sources: c.d3 });
+        : L.kind === 'frb' ? t('layers.frbMeta', { hosts: c.d3, hostsText: fmtFixed(c.d3, 0), sky: c.sky, skyText: fmtFixed(c.sky, 0) })
+          : t('layers.neutrinoMeta', { alerts: c.sky, alertsText: fmtFixed(c.sky, 0), sources: c.d3, sourcesText: fmtFixed(c.d3, 0) });
       rows.push({
         id: L.cfg.id, title: tOr(`layer.${L.cfg.id}`, L.cfg.title), swatch: L.kind,
         meta: `${meta}${L.cfg.credit ? `, ${L.cfg.credit}` : ''}`, checked: L.set.visible, opacity: L.set.opacity,

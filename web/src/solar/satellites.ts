@@ -15,6 +15,7 @@
 
 import * as THREE from 'three/webgpu';
 import { Fn, clamp, dot, exp, float, uniform, uv, vec3 } from 'three/tsl';
+import { fmtFixed } from '../i18n';
 import type { Vec3 } from '../math/frames';
 import { PC_PER_AU } from '../math/units';
 import { srgbToLinear } from '../render/brightness';
@@ -122,7 +123,7 @@ export class Satellites implements SolarExtra {
 
   metaText(): string {
     return this.state === 'ready'
-      ? tr('sat.layer.meta', { n: this.sats.length.toLocaleString('en-US'), t: this.snapshotUtc.slice(0, 16).replace('T', ' ') })
+      ? tr('sat.layer.meta', { n: this.sats.length, nText: fmtFixed(this.sats.length, 0), t: this.snapshotUtc.slice(0, 16).replace('T', ' ') })
       : tr('sat.layer.metaIdle');
   }
 
@@ -332,7 +333,7 @@ export class Satellites implements SolarExtra {
       const span = this.jwst ? [this.jwst.t0_jd_tdb, this.jwst.t0_jd_tdb + (this.jwst.n - 1) * this.jwst.step_days] : null;
       const iso = (jd: number) => new Date((jd - 2440587.5) * 86400000).toISOString().slice(0, 10);
       return { kind: tr('kind.satellite'), title: e.name, rows, docs: e.docs,
-        note: tr('sat.note.jwst', { span: span ? `${iso(span[0])} – ${iso(span[1])}` : 'n/a' }) + (p ? '' : ` ${tr('sat.outside')}`) };
+        note: tr('sat.note.jwst', { span: span ? `${iso(span[0])} – ${iso(span[1])}` : tr('common.na') }) + (p ? '' : ` ${tr('sat.outside')}`) };
     }
     const s = r.idx !== undefined ? this.sats[r.idx] : undefined;
     if (!s) return { kind: tr('kind.satellite'), title: e.name, rows, note: tr('sat.layer.metaIdle'), docs: e.docs };

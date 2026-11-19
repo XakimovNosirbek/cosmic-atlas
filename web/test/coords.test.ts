@@ -5,7 +5,7 @@ const close = (a: number, b: number, eps = 1e-6) => expect(Math.abs(a - b)).toBe
 
 describe('sky coordinates in the search box', () => {
   it('reads decimal degrees in several spellings', () => {
-    for (const q of ['83.822 -5.391', '83.822, -5.391', 'ra=83.822 dec=-5.391', '  83.822   −5.391 ']) {
+    for (const q of ['83.822 -5.391', '83.822, -5.391', 'ra=83.822 dec=-5.391', 'ra: 83.822 dec: -5.391', '  83.822   −5.391 ', '83,822, -5,391']) {
       const c = parseSkyCoord(q);
       expect(c, q).toEqual({ frame: 'icrs', ra: 83.822, dec: -5.391 });
     }
@@ -19,6 +19,12 @@ describe('sky coordinates in the search box', () => {
       close(c.ra, (5 + 35 / 60 + 17.3 / 3600) * 15);
       close(c.dec, -(5 + 23 / 60 + 28 / 3600));
     }
+    const c4 = parseSkyCoord('05:35 -05:23');
+    expect(c4?.frame).toBe('icrs');
+    if (c4?.frame === 'icrs') {
+      close(c4.ra, (5 + 35 / 60) * 15);
+      close(c4.dec, -(5 + 23 / 60));
+    }
   });
 
   it('reads Galactic l, b', () => {
@@ -29,7 +35,7 @@ describe('sky coordinates in the search box', () => {
   });
 
   it('leaves names, single numbers and out-of-range values to the name search', () => {
-    for (const q of ['M 31', 'NGC 1976', 'HD 197076', '42', 'Gaia DR3 6879230671125485312', '400 10', '10 95', 'l=10 b=100', '1 2 3 4 5 6', 'Mars']) {
+    for (const q of ['M 31', 'NGC 1976', 'HD 197076', '42', 'Gaia DR3 6879230671125485312', '400 10', '10 95', 'l=10 b=100', '1 2 3 4 5 6', 'Mars', '05:99:99 -05:23:28', '12d 30m 00s +10d 20m 30s']) {
       expect(parseSkyCoord(q), q).toBeNull();
     }
   });

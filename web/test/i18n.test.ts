@@ -94,6 +94,8 @@ describe('language resolution (contract §1)', () => {
     expect(resolveLang({ search: '?lang=xx', saved: 'en', browser: ['ru'] })).toBe('en');
     expect(resolveLang({ saved: null, browser: ['ru-RU', 'en'] })).toBe('ru');
     expect(resolveLang({ browser: ['uz-Latn-UZ'] })).toBe('uz');
+    expect(resolveLang({ browser: ['kk-KZ', 'ru-RU'] })).toBe('ru');
+    expect(resolveLang({ browser: ['tr-TR', 'uz-UZ'] })).toBe('uz');
     expect(resolveLang({ browser: ['de-DE'] })).toBe('en');
     expect(resolveLang({})).toBe('uz');
   });

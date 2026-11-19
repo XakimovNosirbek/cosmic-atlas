@@ -30,8 +30,8 @@ export class DocsPanel {
     $('docs-close').addEventListener('click', () => this.close());
     $('docs-back').addEventListener('click', () => this.back());
     $('docs-home').addEventListener('click', () => void this.open('index'));
-    this.root.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.isOpen && !document.querySelector('dialog[open]')) {
         e.stopPropagation();
         this.close();
       }
@@ -58,6 +58,7 @@ export class DocsPanel {
       else this.stack.push(s);
     }
     this.root.hidden = false;
+    this.root.setAttribute('aria-modal', window.matchMedia(PHONE).matches ? 'true' : 'false');
     document.body.classList.add('has-docs');
     await this.render(s);
   }
@@ -186,15 +187,17 @@ export class DocsPanel {
 /** a source line: URLs and doi:… become links, everything else escaped text */
 export function linkifySource(s: string): string {
   const doi = (x: string) => `https://doi.org/${x}`;
-  // escaped text, with bare URLs and DOIs wrapped in links
+  // escaped text, with bare URLs and DOIs wrapped in links (trailing punctuation stays outside the link)
   const parts = s.split(/(https?:\/\/[^\s)]+|doi:\s?10\.\d{4,9}\/[^\s)]+)/g);
   return parts
     .map((p, i) => {
       if (i % 2 === 0) return escapeHtml(p);
-      const href = p.startsWith('doi:') ? doi(p.replace(/^doi:\s?/, '')) : p;
+      const trail = p.match(/[.,;]+$/)?.[0] ?? '';
+      const core = trail ? p.slice(0, -trail.length) : p;
+      const href = core.startsWith('doi:') ? doi(core.replace(/^doi:\s?/, '')) : core;
       const target = classifyLink(href);
       if (target.type !== 'external') return escapeHtml(p);
-      return `<a href="${escapeHtml(target.href)}" target="_blank" rel="noopener noreferrer" class="ext">${escapeHtml(p)}</a>`;
+      return `<a href="${escapeHtml(target.href)}" target="_blank" rel="noopener noreferrer" class="ext">${escapeHtml(core)}</a>${escapeHtml(trail)}`;
     })
     .join('');
 }

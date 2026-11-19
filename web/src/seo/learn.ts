@@ -33,20 +33,20 @@ export interface OutFile {
   content: string;
 }
 
-const UI: Record<Lang, { learn: string; open: string; contents: string; related: string; sources: string; updated: string; cite: string; about: string; home: string }> = {
+const UI: Record<Lang, { learn: string; open: string; contents: string; related: string; sources: string; updated: string; cite: string; about: string; home: string; langLabel: string }> = {
   en: {
     learn: 'Learn', open: 'Open in the 3D atlas', contents: 'All articles', related: 'Related articles', sources: 'Sources',
-    updated: 'Updated', cite: 'Cite the atlas', home: 'Cosmic Atlas: 3D map of the universe',
+    updated: 'Updated', cite: 'Cite the atlas', home: 'Cosmic Atlas: 3D map of the universe', langLabel: 'Language',
     about: 'Cosmic Atlas is a free 3D map of the real universe in the browser: 39.6 million Gaia stars, 15 million DESI galaxies, the Solar System, black holes and the cosmic web, each at its measured position.',
   },
   uz: {
     learn: 'Maqolalar', open: '3D atlasda ochish', contents: 'Barcha maqolalar', related: 'Bogʻliq maqolalar', sources: 'Manbalar',
-    updated: 'Yangilangan', cite: 'Atlasga havola', home: 'Cosmic Atlas: koinotning 3D xaritasi',
+    updated: 'Yangilangan', cite: 'Atlasga havola', home: 'Cosmic Atlas: koinotning 3D xaritasi', langLabel: 'Til',
     about: 'Cosmic Atlas: brauzerdagi haqiqiy koinotning bepul 3D xaritasi. Gaia oʻlchagan 39,6 million yulduz, DESI xaritalagan 15 million galaktika, Quyosh tizimi, qora tuynuklar va kosmik toʻr, har biri oʻlchangan joyida.',
   },
   ru: {
     learn: 'Статьи', open: 'Открыть в 3D-атласе', contents: 'Все статьи', related: 'Связанные статьи', sources: 'Источники',
-    updated: 'Обновлено', cite: 'Как цитировать', home: 'Cosmic Atlas: 3D-карта Вселенной',
+    updated: 'Обновлено', cite: 'Как цитировать', home: 'Cosmic Atlas: 3D-карта Вселенной', langLabel: 'Язык',
     about: 'Cosmic Atlas — бесплатная 3D-карта настоящей Вселенной в браузере: 39,6 млн звёзд Gaia, 15 млн галактик DESI, Солнечная система, чёрные дыры и космическая паутина, каждый объект на измеренном месте.',
   },
 };
@@ -78,7 +78,7 @@ function jsonLd(data: unknown): string {
 const CSS = `
 :root{color-scheme:dark;--bg:#05070c;--panel:#0c111b;--ink:#ece6da;--dim:#b6ad9d;--brass:#e3c48f;--line:rgba(201,166,107,.25)}
 *{box-sizing:border-box}html{background:var(--bg)}body{margin:0;color:var(--ink);background:var(--bg);font:17px/1.65 -apple-system,'Segoe UI','Helvetica Neue',Arial,sans-serif}
-a{color:var(--brass)}a:hover{color:#fff}
+a{color:var(--brass)}a:hover{color:#fff}:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 header,main,footer{max-width:760px;margin:0 auto;padding:0 16px}
 header{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;justify-content:space-between;padding-top:18px;padding-bottom:10px;border-bottom:1px solid var(--line)}
 .brand{font:italic 500 24px/1 Georgia,'Times New Roman',serif;color:var(--brass);text-decoration:none}
@@ -184,16 +184,16 @@ export function buildLearnSite(docs: SourceDoc[], opts: SiteOptions): OutFile[] 
       '<meta name="viewport" content="width=device-width, initial-scale=1">',
       `<title>${escapeHtml(title)}</title>`,
       `<meta name="description" content="${escapeHtml(meta.summary)}">`,
-      `<link rel="canonical" href="${url}">`,
-      ...alts.map((x) => `<link rel="alternate" hreflang="${x.lang}" href="${x.href}">`),
-      ...(alts.some((x) => x.lang === 'en') ? [`<link rel="alternate" hreflang="x-default" href="${pageUrl('en', slug)}">`] : []),
+      `<link rel="canonical" href="${escapeHtml(url)}">`,
+      ...alts.map((x) => `<link rel="alternate" hreflang="${x.lang}" href="${escapeHtml(x.href)}">`),
+      ...(alts.some((x) => x.lang === 'en') ? [`<link rel="alternate" hreflang="x-default" href="${escapeHtml(pageUrl('en', slug))}">`] : []),
       `<meta property="og:type" content="${isIndex ? 'website' : 'article'}">`,
       '<meta property="og:site_name" content="Cosmic Atlas">',
       `<meta property="og:title" content="${escapeHtml(meta.title)}">`,
       `<meta property="og:description" content="${escapeHtml(meta.summary)}">`,
-      `<meta property="og:url" content="${url}">`,
+      `<meta property="og:url" content="${escapeHtml(url)}">`,
       `<meta property="og:locale" content="${LOCALE[lang]}">`,
-      `<meta property="og:image" content="${ogImage}">`,
+      `<meta property="og:image" content="${escapeHtml(ogImage)}">`,
       '<meta property="og:image:width" content="1200">',
       '<meta property="og:image:height" content="630">',
       '<meta name="twitter:card" content="summary_large_image">',
@@ -222,9 +222,9 @@ export function buildLearnSite(docs: SourceDoc[], opts: SiteOptions): OutFile[] 
 ${head}
 </head>
 <body>
-<header><a class="brand" href="${app}?lang=${lang}">Cosmic Atlas</a><nav class="langs" aria-label="Language">${langNav}</nav></header>
+<header><a class="brand" href="${app}?lang=${lang}">Cosmic Atlas</a><nav class="langs" aria-label="${escapeHtml(ui.langLabel)}">${langNav}</nav></header>
 <main>
-<p class="crumbs"><a href="${app}?lang=${lang}">Cosmic Atlas</a> › ${isIndex ? ui.learn : `<a href="${isIndex ? './' : '../'}">${ui.learn}</a> › ${escapeHtml(meta.title)}`}</p>
+<nav class="crumbs" aria-label="Breadcrumb"><a href="${app}?lang=${lang}">Cosmic Atlas</a> › ${isIndex ? ui.learn : `<a href="${isIndex ? './' : '../'}">${ui.learn}</a> › ${escapeHtml(meta.title)}`}</nav>
 <article>
 <h1>${escapeHtml(meta.title)}</h1>
 <p class="lede">${escapeHtml(meta.summary)}</p>
@@ -251,7 +251,7 @@ ${isIndex ? '' : `<p><a href="../">${ui.contents}</a></p>`}
   // /learn/ itself: send people to the contents page in their language
   const learnRoot = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Learn · Cosmic Atlas</title><link rel="canonical" href="${pageUrl('en', 'index')}">
+<title>Learn · Cosmic Atlas</title><link rel="canonical" href="${escapeHtml(`${site}learn/`)}">
 <meta name="robots" content="noindex, follow"><style>${CSS.trim()}</style></head>
 <body><main><h1>Cosmic Atlas</h1><ul class="list">${LANGS.filter((l) => by.has(`${l}/index`)).map((l) => `<li><a href="${l}/" hreflang="${l}" lang="${l}"><b>${escapeHtml(UI[l].contents)}</b></a><span>${escapeHtml(UI[l].home)}</span></li>`).join('')}</ul></main></body></html>
 `;
@@ -259,11 +259,11 @@ ${isIndex ? '' : `<p><a href="../">${ui.contents}</a></p>`}
 
   const today = opts.today;
   const urls = [
-    `  <url><loc>${site}</loc><lastmod>${today}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>`,
+    `  <url><loc>${escapeHtml(site)}</loc><lastmod>${escapeHtml(today)}</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>`,
     ...sitemap.map((u) => [
-      `  <url><loc>${u.loc}</loc><lastmod>${u.lastmod}</lastmod>`,
-      ...u.alts.map((x) => `    <xhtml:link rel="alternate" hreflang="${x.lang}" href="${x.href}"/>`),
-      ...(u.alts.length > 1 && u.alts.some((x) => x.lang === 'en') ? [`    <xhtml:link rel="alternate" hreflang="x-default" href="${u.alts.find((x) => x.lang === 'en')!.href}"/>`] : []),
+      `  <url><loc>${escapeHtml(u.loc)}</loc><lastmod>${escapeHtml(u.lastmod)}</lastmod>`,
+      ...u.alts.map((x) => `    <xhtml:link rel="alternate" hreflang="${x.lang}" href="${escapeHtml(x.href)}"/>`),
+      ...(u.alts.length > 1 && u.alts.some((x) => x.lang === 'en') ? [`    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeHtml(u.alts.find((x) => x.lang === 'en')!.href)}"/>`] : []),
       '  </url>',
     ].join('\n')),
   ];

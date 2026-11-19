@@ -33,6 +33,9 @@ const SQRT3 = Math.sqrt(3);
 export const FADE_S = 0.35;
 /** at most this many drawn nodes get their pick records loaded for the uncertainty view */
 export const UNC_NODE_BUDGET = 32;
+/** transient tile fetch retries (e.g. HF 429 or brief drop) before giving up */
+const MAX_TILE_RETRIES = 3;
+const RETRY_BASE_MS = 2000;
 /**
  * orbit work per epoch change (points x leapfrog steps) above which the slider first shows a
  * coarse track (fewer, longer steps) and the full one ~0.2 s after it stops moving: 4 M stars at
@@ -72,6 +75,11 @@ export interface TileNode {
   blobAlpha: number;
   slot: number;
   ownL: number;
+  retries?: number;
+  retryAt?: number;
+  velRetries?: number;
+  velRetryAt?: number;
+  uncPending?: boolean;
 }
 
 export class PointLayer {
@@ -477,10 +485,19 @@ export class Streamer {
       const pr = this.projected(n, v.camPos, v.pxPerRad);
       nearest = Math.min(nearest, pr.dist);
       farthest = Math.max(farthest, pr.dist + 2 * n.meta.half * SQRT3);
+      if (n.state === NodeState.Failed && (n.retries ?? 0) < MAX_TILE_RETRIES && performance.now() >= (n.retryAt ?? 0)) {
+        n.state = NodeState.Unloaded;
+      }
       if (n.state === NodeState.Unloaded) toLoad.push(n);
       if (n.state !== NodeState.Loaded) continue;
       if (this.needVel(n) && !n.velData) {
-        this.loadVel(n); // drawn (and refined) once its velocities are in; its blob covers the gap
+        if (!n.vel || ((n.velRetries ?? 0) < MAX_TILE_RETRIES && n.velRetryAt !== undefined && performance.now() >= n.velRetryAt)) {
+          if (n.velRetryAt !== undefined) {
+            n.vel = null;
+            n.velRetryAt = undefined;
+          }
+          this.loadVel(n); // drawn (and refined) once its velocities are in; its blob covers the gap
+        }
         continue;
       }
       for (const ch of n.children) {
@@ -626,7 +643,11 @@ export class Streamer {
       for (const n of want) {
         if (have >= UNC_NODE_BUDGET) break;
         have++;
-        if (!n.ext) n.layer.loadExt(n).then(() => this.attachUnc(n)).catch(() => {});
+        if (n.extBuf) this.attachUnc(n);
+        else if (!n.uncPending) {
+          n.uncPending = true;
+          n.layer.loadExt(n).then(() => this.attachUnc(n)).catch(() => {}).finally(() => (n.uncPending = false));
+        }
       }
     }
 
@@ -672,7 +693,13 @@ export class Streamer {
     const L = n.layer;
     const p = fetch(L.nodeUrl(n.meta, '.vel.bin'))
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) {
+          const err = new Error(`HTTP ${r.status}`) as Error & { status?: number; retryAfterMs?: number };
+          err.status = r.status;
+          const ra = Number(r.headers.get('Retry-After'));
+          if (Number.isFinite(ra) && ra > 0) err.retryAfterMs = ra * 1000;
+          throw err;
+        }
         return r.arrayBuffer();
       })
       .then((b) => parseVelocityRecords(b, n.meta.count));
@@ -690,12 +717,21 @@ export class Streamer {
         g.setAttribute('vel', new THREE.InstancedBufferAttribute(v, 4));
       }
       n.velData = v;
+      n.velRetries = 0;
+      n.velRetryAt = undefined;
       this.onLoaded();
     }).catch((e) => {
-      // kept as the failed promise: no retry storm; the node is not drawn away from "now" (its
-      // stars' positions at that epoch are unknown), its blob keeps the light
+      const err = e as Error & { status?: number; retryAfterMs?: number };
+      const retryable = err.status === undefined || err.status === 429 || err.status >= 500;
+      const attempt = (n.velRetries ?? 0) + 1;
+      n.velRetries = retryable ? attempt : MAX_TILE_RETRIES;
+      if (retryable && attempt <= MAX_TILE_RETRIES) {
+        const delay = err.retryAfterMs ?? RETRY_BASE_MS * Math.pow(3, attempt - 1);
+        n.velRetryAt = performance.now() + Math.min(delay, 60_000);
+        window.setTimeout(() => this.onLoaded(), Math.min(delay, 60_000));
+      }
       this.failed++;
-      console.warn(`[tiles] ${L.cfg.id}/${n.meta.name}.vel.bin: ${(e as Error).message}`);
+      console.warn(`[tiles] ${L.cfg.id}/${n.meta.name}.vel.bin: ${err.message}`);
     });
   }
 
@@ -730,7 +766,13 @@ export class Streamer {
     const L = n.layer;
     fetch(L.nodeUrl(n.meta, '.bin'))
       .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) {
+          const err = new Error(`HTTP ${r.status}`) as Error & { status?: number; retryAfterMs?: number };
+          err.status = r.status;
+          const ra = Number(r.headers.get('Retry-After'));
+          if (Number.isFinite(ra) && ra > 0) err.retryAfterMs = ra * 1000;
+          throw err;
+        }
         return r.arrayBuffer();
       })
       .then((buf) => {
@@ -755,14 +797,25 @@ export class Streamer {
         n.pick = pick;
         n.data = data;
         n.state = NodeState.Loaded;
+        n.retries = 0;
+        n.retryAt = undefined;
         n.ownAlpha = 0;
         this.loaded.add(n);
         if (this.uncertainty && n.extBuf) this.attachUnc(n);
       })
       .catch((e) => {
+        const err = e as Error & { status?: number; retryAfterMs?: number };
+        const retryable = err.status === undefined || err.status === 429 || err.status >= 500;
+        const attempt = (n.retries ?? 0) + 1;
+        n.retries = retryable ? attempt : MAX_TILE_RETRIES;
         n.state = NodeState.Failed;
+        if (retryable && attempt <= MAX_TILE_RETRIES) {
+          const delay = Math.min(err.retryAfterMs ?? RETRY_BASE_MS * Math.pow(3, attempt - 1), 60_000);
+          n.retryAt = performance.now() + delay;
+          window.setTimeout(() => this.onLoaded(), delay);
+        }
         this.failed++;
-        console.warn(`[tiles] ${L.cfg.id}/${n.meta.name}: ${(e as Error).message}`);
+        console.warn(`[tiles] ${L.cfg.id}/${n.meta.name}: ${err.message}`);
       })
       .finally(() => {
         this.inFlight--;

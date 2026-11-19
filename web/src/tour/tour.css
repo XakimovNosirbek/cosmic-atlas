@@ -84,8 +84,9 @@
   body.has-tour #layers { display: none; }
 }
 @media (pointer: coarse) {
-  .tp-ctl .icon-btn { width: 44px; height: 44px; }
+  .tp-ctl .icon-btn, .tp-close { width: 44px; height: 44px; }
   .tp-ctl .tp-learn { min-height: 44px; }
+  .tp-dot { min-width: 24px; height: 44px; }
 }
 
 /* the event-horizon illustration of the black hole tour: a black disc grows over the view */
