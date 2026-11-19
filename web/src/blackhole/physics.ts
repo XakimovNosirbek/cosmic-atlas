@@ -128,3 +128,47 @@ export function diskRedshift(x: number, bz: number, xObs: number): number {
 export function einsteinAngle(rsM: number, dM: number): number {
   return Math.sqrt((2 * rsM) / dM);
 }
+
+/**
+ * Kerr outer event horizon r_+ in units of r_s = 2M for dimensionless spin a* in [0, 1):
+ *   r_+ / M = 1 + sqrt(1 - a*^2)  =>  r_+ / r_s = (1 + sqrt(1 - a*^2)) / 2.
+ */
+export function kerrHorizon(aStar: number): number {
+  const a = Math.max(0, Math.min(0.9999, Math.abs(aStar)));
+  return (1 + Math.sqrt(1 - a * a)) / 2;
+}
+
+/**
+ * Kerr prograde equatorial ISCO in units of r_s = 2M (Bardeen, Press & Teukolsky 1972, ApJ 178, 347):
+ *   a* = 0 -> 3.0 r_s (6 M);  a* = 0.5 -> 2.1165 r_s;  a* = 0.998 -> 0.6185 r_s.
+ */
+export function kerrIsco(aStar: number): number {
+  const a = Math.max(0, Math.min(0.9999, Math.abs(aStar)));
+  if (a === 0) return X_ISCO;
+  const c1 = Math.cbrt(1 - a * a);
+  const z1 = 1 + c1 * (Math.cbrt(1 + a) + Math.cbrt(1 - a));
+  const z2 = Math.sqrt(3 * a * a + z1 * z1);
+  const rOverM = 3 + z2 - Math.sqrt((3 - z1) * (3 + z1 + 2 * z2));
+  return rOverM / 2;
+}
+
+/**
+ * Kerr prograde equatorial photon orbit in units of r_s = 2M (Bardeen, Press & Teukolsky 1972):
+ *   r_ph / M = 2 [1 + cos((2/3) arccos(-a*))]  =>  x_ph = r_ph / (2M).
+ *   a* = 0 -> 1.5 r_s (3 M);  a* -> 1 -> 0.5 r_s (1 M).
+ */
+export function kerrPhotonPrograde(aStar: number): number {
+  const a = Math.max(0, Math.min(0.9999, Math.abs(aStar)));
+  if (a === 0) return X_PHOTON;
+  return 1 + Math.cos((2 / 3) * Math.acos(-a));
+}
+
+/**
+ * Prograde equatorial Keplerian angular velocity Omega (in units of c / r_s) for a Kerr black hole:
+ *   Omega_M = 1 / (r_*^{3/2} + a*),  r_* = 2x  =>  Omega_{r_s} = 2 / ((2x)^{3/2} + a*).
+ * Matches Schwarzschild sqrt(0.5 / x^3) identically at a* = 0.
+ */
+export function kerrDiskOmega(x: number, aStar: number): number {
+  const a = Math.max(0, Math.min(0.9999, Math.abs(aStar)));
+  return 2 / (Math.pow(2 * x, 1.5) + a);
+}

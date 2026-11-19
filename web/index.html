@@ -104,17 +104,21 @@
         </button>
       </div>
       <p id="info-summary" class="summary" hidden></p>
+      <div id="info-viz" class="info-viz" hidden></div>
       <dl id="info-rows" class="rows"></dl>
       <p id="info-note" class="fine"></p>
       <div id="info-links" class="links"></div>
       <div class="info-actions">
         <button id="info-fly" class="btn" type="button" data-i18n="info.fly">Fly here</button>
+        <button id="info-measure" class="btn" type="button" data-i18n="info.measure" data-i18n-attr="title:info.measureHint">Measure</button>
         <button id="info-more" class="btn btn-read" type="button" hidden>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z" /></svg>
           <span data-i18n="info.learnMore">Learn more</span>
         </button>
       </div>
     </aside>
+
+    <button id="clean-restore" class="clean-restore" type="button" data-i18n="clean.restore">Show UI (H)</button>
 
     <div id="stats" class="stats" aria-hidden="true" hidden></div>
 
@@ -139,6 +143,12 @@
         <button id="showme" class="btn" type="button" data-i18n-attr="title:showme.title;aria-label:showme.title" title="Fly from the cosmic web down to where you are">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z" /></svg>
           <span class="tour-label" data-i18n="showme.label">Show me</span>
+        </button>
+        <button id="nightsky-btn" class="icon-btn" type="button" aria-label="Night sky from here" title="Night sky from here" data-i18n-attr="aria-label:action.nightsky;title:action.nightsky">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" /></svg>
+        </button>
+        <button id="photo-btn" class="icon-btn" type="button" aria-label="Save photo of this view" title="Save photo of this view" data-i18n-attr="aria-label:action.photo;title:action.photo">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h2l1.5-2h5L16 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><circle cx="12" cy="13" r="3.5" /></svg>
         </button>
         <button id="time-btn" class="icon-btn" type="button" aria-pressed="false" hidden aria-label="Time: Solar System clock and moving stars" title="Time: Solar System clock and moving stars" data-i18n-attr="aria-label:action.time;title:action.time">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
@@ -205,6 +215,7 @@
         <dt data-i18n="help.k.click">Click</dt><dd data-i18n="help.v.click">Details of the brightest point under the cursor</dd>
         <dt data-i18n="help.k.dbl">Double-click</dt><dd data-i18n="help.v.dbl">Fly to that point</dd>
         <dt data-i18n="help.k.search">/</dt><dd data-i18n="help.v.search">Search</dd>
+        <dt data-i18n="help.k.clean">H</dt><dd data-i18n="help.v.clean">Hide or show all panels (clean view)</dd>
         <dt data-i18n="help.k.tour">← → Space Esc</dt><dd data-i18n="help.v.tour">During a tour: previous or next stop, pause, close</dd>
       </dl>
       <p><a class="learn-link" href="learn/en/" data-i18n="help.learn" data-i18n-attr="href:help.learnHref">All articles: stars, galaxies, black holes, the Solar System</a></p>

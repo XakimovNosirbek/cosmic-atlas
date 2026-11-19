@@ -20,6 +20,9 @@ export interface PlayerState {
   ended: boolean;
   /** docs slug for "Learn more" (none: the button is hidden) */
   doc: string | null;
+  /** optional Web Speech voice narration enabled */
+  voice?: boolean;
+  voiceSupported?: boolean;
 }
 
 const ICON = {
@@ -30,6 +33,8 @@ const ICON = {
   replay: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg>',
   close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H11v16H5.5A1.5 1.5 0 0 1 4 18.5zM20 5.5A1.5 1.5 0 0 0 18.5 4H13v16h5.5a1.5 1.5 0 0 0 1.5-1.5z"/></svg>',
+  voiceOn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
+  voiceOff: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></svg>',
 };
 
 export class TourPlayer {
@@ -40,6 +45,7 @@ export class TourPlayer {
   onToggle: () => void = () => {};
   onClose: () => void = () => {};
   onLearn: (slug: string) => void = () => {};
+  onVoice: () => void = () => {};
   private state: PlayerState | null = null;
   private readonly q = <T extends Element = HTMLElement>(s: string) => this.el.querySelector(s) as T;
 
@@ -62,6 +68,7 @@ export class TourPlayer {
         <div class="tp-dots" role="group"></div>
         <div class="tp-ctl">
           <button class="btn btn-read tp-learn" type="button">${ICON.book}<span></span></button>
+          <button class="icon-btn tp-voice" type="button" hidden>${ICON.voiceOff}</button>
           <button class="icon-btn tp-prev" type="button">${ICON.prev}</button>
           <button class="icon-btn tp-play" type="button"></button>
           <button class="icon-btn tp-next" type="button">${ICON.next}</button>
@@ -73,6 +80,7 @@ export class TourPlayer {
     this.q('.tp-play').addEventListener('click', () => this.onToggle());
     this.q('.tp-close').addEventListener('click', () => this.onClose());
     this.q('.tp-learn').addEventListener('click', () => this.state?.doc && this.onLearn(this.state.doc));
+    this.q('.tp-voice').addEventListener('click', () => this.onVoice());
     // capture phase, before the map's own keys (arrows orbit the camera there)
     window.addEventListener('keydown', this.onKey, true);
     document.body.append(el);
@@ -124,6 +132,13 @@ export class TourPlayer {
     label('.tp-prev', 'tours.prev');
     label('.tp-next', 'tours.next');
     label('.tp-close', 'tours.close');
+    const voice = this.q<HTMLButtonElement>('.tp-voice');
+    voice.hidden = !s.voiceSupported;
+    if (s.voiceSupported) {
+      voice.innerHTML = s.voice ? ICON.voiceOn : ICON.voiceOff;
+      voice.setAttribute('aria-pressed', String(!!s.voice));
+      label('.tp-voice', s.voice ? 'tours.voiceOff' : 'tours.voiceOn');
+    }
     const play = this.q('.tp-play');
     play.innerHTML = s.ended ? ICON.replay : s.playing ? ICON.pause : ICON.play;
     label('.tp-play', s.ended ? 'tours.replay' : s.playing ? 'tours.pause' : 'tours.play');

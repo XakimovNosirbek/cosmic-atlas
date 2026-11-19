@@ -44,6 +44,17 @@ number on screen comes with the catalogue it came from.
   [Русский](https://cosmic.bristleconelab.org/learn/ru/).
 - **Share a view.** The link names the object you are looking at, e.g. `#at=Saturn`. Save views
   and play them back as a short story.
+- **Jump across scales** with one click from the bar under the search: Earth, Saturn, Sgr A*,
+  Gaia BH3, the Orion Nebula, Andromeda, Laniakea, the cosmic web and the CMB. Layer presets
+  (Solar System, Milky Way, Laniakea, messengers) switch a whole set of layers at once.
+- **Constellations in 3D.** 20 constellations drawn between the real positions of their named
+  stars: from Earth they look familiar, from a few hundred parsecs away they fall apart. "Night sky
+  from here" looks straight up from your location at the current time.
+- **Measure** the 3D distance between any two objects, in parsecs, light-years and Voyager 1
+  travel time. Cards show small diagrams: a star on the HR diagram, a black hole's horizon next to
+  the Sun and the planets' orbits, an exoplanet system next to Mercury, Earth and Jupiter.
+- **Save a photo** of the view with a caption, or press `H` to hide every panel. Tours can be read
+  aloud by the browser's speech voice.
 
 ## What's in it
 
@@ -128,8 +139,10 @@ ones that change what you see:
   10.5 billion years ago; the cosmic microwave background, 13.9 Gpc away, as it was 372,000 years after
   the Big Bang; the nearest stars as they were a few years ago. The map is not a picture of a single
   moment.
-- **Black holes do not spin here.** The fly-in view ray-traces the Schwarzschild metric. Real black
-  holes spin (Kerr), which shifts and flattens one side of the shadow. Far from Earth, the sky behind
+- **Black hole spin is illustrative.** The fly-in view ray-traces the Schwarzschild metric. Real black
+  holes spin (Kerr), which shifts and flattens one side of the shadow. The spin slider moves the
+  horizon, the disk's inner edge and its orbital speed to their Kerr values, but light still follows
+  Schwarzschild paths with an approximate frame-dragging tilt; it is not a Kerr ray trace. Far from Earth, the sky behind
   a hole is the sky as seen from Earth, because the real sky at that spot is not known at this
   resolution.
 

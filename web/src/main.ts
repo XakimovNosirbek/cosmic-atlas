@@ -1,10 +1,24 @@
-import '@fontsource/spectral/400.css';
-import '@fontsource/spectral/400-italic.css';
-import '@fontsource/spectral/500.css';
-import '@fontsource/spectral/500-italic.css';
-import '@fontsource/ibm-plex-sans/400.css';
-import '@fontsource/ibm-plex-sans/500.css';
-import '@fontsource/ibm-plex-sans/600.css';
+import '@fontsource/spectral/latin-400.css';
+import '@fontsource/spectral/latin-ext-400.css';
+import '@fontsource/spectral/cyrillic-400.css';
+import '@fontsource/spectral/latin-400-italic.css';
+import '@fontsource/spectral/latin-ext-400-italic.css';
+import '@fontsource/spectral/cyrillic-400-italic.css';
+import '@fontsource/spectral/latin-500.css';
+import '@fontsource/spectral/latin-ext-500.css';
+import '@fontsource/spectral/cyrillic-500.css';
+import '@fontsource/spectral/latin-500-italic.css';
+import '@fontsource/spectral/latin-ext-500-italic.css';
+import '@fontsource/spectral/cyrillic-500-italic.css';
+import '@fontsource/ibm-plex-sans/latin-400.css';
+import '@fontsource/ibm-plex-sans/latin-ext-400.css';
+import '@fontsource/ibm-plex-sans/cyrillic-400.css';
+import '@fontsource/ibm-plex-sans/latin-500.css';
+import '@fontsource/ibm-plex-sans/latin-ext-500.css';
+import '@fontsource/ibm-plex-sans/cyrillic-500.css';
+import '@fontsource/ibm-plex-sans/latin-600.css';
+import '@fontsource/ibm-plex-sans/latin-ext-600.css';
+import '@fontsource/ibm-plex-sans/cyrillic-600.css';
 import './style.css';
 import './ui/okina';
 
@@ -18,6 +32,7 @@ import { LazyDocsPanel, loadArticleLazy } from './docs/lazy';
 import { decimalSep, fmtFixed, getLang, initLang, onLangChange, t, tOr } from './i18n';
 import { applyI18n, mountLangSwitch } from './i18n/dom';
 import { galToLB, galToRadec, radecDistToGal, type Vec3 } from './math/frames';
+import { cmbRestRedshift } from './math/cosmology';
 import { describeLookback, fmtNum, formatDistance, formatLightTime, formatLy, formatRange, niceScaleBar } from './math/units';
 import { docSlugFor, kindFromOtype, kindInfo } from './objects/kinds';
 import { NAMED_VIEWS, fold, type NamedView } from './search/aliases';
@@ -59,13 +74,23 @@ import { myrToSlider, sliderToMyr } from './solar/epoch';
 import { formatEpoch } from './solar/timebar';
 // --- GW hook (web/src/render/gwVolumes.ts, web/src/objects/gw.ts): localisation volumes, card note and links
 import { GwVolumes } from './render/gwVolumes';
-import { clusterPointCard, gwLinks, gwNote, nearestEntry } from './objects/gw';
+import { clusterPointCard, gwNote, nearestEntry } from './objects/gw';
 // --- Dust hook (web/src/dust): Edenhofer et al. 2024 3D dust, ray-marched in the post pass
 import { DustFeature } from './dust';
 // --- Messengers hook (web/src/messengers): CMB shell, sky background chooser, FRBs, neutrinos
 import { MessengerFeature } from './messengers';
 // --- Cosmography hook (web/src/cosmography): supergalactic grid, CF4++ density + flow, Laniakea basins, 2MRS groups
 import { CosmographyFeature } from './cosmography';
+// --- 3D constellations, Quick-Jump, Presets, Distance Measurer, MiniViz, Photo Mode
+import { ConstellationLayer, zenithViewForObserver } from './render/constellations';
+import { QuickJumpBar, type QuickDest } from './ui/quickjump';
+import { PresetsBar, type LayerPreset } from './ui/presets';
+import { DistanceMeasurer } from './ui/measure';
+import { blackHoleScaleSvg, exoplanetScaleSvg, starHrSvg } from './ui/miniViz';
+import { captureSnapshot, toggleCleanView } from './ui/snapshot';
+import {
+  MW_LABEL_KEYS, catalogLinks, copyButton, displayName, esc, layerCredit, layerTitle, localNums, prefGet, prefSet, sesameSource, skyCoordText, smoothstep,
+} from './ui/helpers';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const DEG = 180 / Math.PI;
@@ -180,6 +205,11 @@ export class App {
   // --- Messengers hook (created with the post pass)
   msg!: MessengerFeature;
   cosmo!: CosmographyFeature; // --- Cosmography hook (created with the post pass)
+  constellations = new ConstellationLayer();
+  quickjump!: QuickJumpBar;
+  presets!: PresetsBar;
+  measurer!: DistanceMeasurer;
+  private pendingSnapshot = false;
 
   async start() {
     initLang();
@@ -253,6 +283,7 @@ export class App {
     this.scene.add(this.mw.points);
     this.scene.add(this.shapes.group);
     this.scene.add(this.gw.group); // --- GW hook
+    this.scene.add(this.constellations.group);
     this.shapes.onChange = () => (this.dirty = true);
     this.shapes.thumbsEnabled = new URLSearchParams(location.search).get('thumbs') !== 'off';
     // --- Solar System hook: the layer, its time bar, and clicks on its labels
@@ -345,6 +376,9 @@ export class App {
     if (!$('info').hidden) this.infoRefresh?.();
     this.tours?.relabel();
     if (this.toursMenu?.isOpen) void this.toursMenu.render();
+    this.quickjump?.relabel();
+    this.presets?.relabel();
+    this.measurer?.relabel();
     $('search-status').textContent = '';
     this.dirty = true;
   }
@@ -386,6 +420,7 @@ export class App {
       }
     }
     if (hashLayers?.solar !== undefined) this.solar.visible = hashLayers.solar; // --- Solar System hook
+    if (hashLayers?.constellations !== undefined) this.constellations.visible = hashLayers.constellations;
     const known = this.tilesIndex ? new Set(this.tilesIndex.layers) : undefined;
     // --- Dust hook: textures load in the background (35 MB); the panel row appears when ready
     this.dust.onChange = () => (this.dirty = true);
@@ -468,6 +503,7 @@ export class App {
     if (this.skyCfg) out[this.skyCfg.id] = this.sky.visible;
     if (this.gwCfg) out[this.gwCfg.id] = this.gw.visible; // --- GW hook
     out.solar = this.solar.visible; // --- Solar System hook
+    if (this.constellations.segmentCount > 0) out.constellations = this.constellations.visible;
     if (this.dust.cfg && this.dust.status === 'ready') out[this.dust.cfg.id] = this.dust.visible; // --- Dust hook
     Object.assign(out, this.msg.visibility()); // --- Messengers hook
     Object.assign(out, this.cosmo.visibility()); // --- Cosmography hook
@@ -487,6 +523,7 @@ export class App {
       if (this.labelItems) this.buildLabels(); // event labels follow their layer
     }
     else if (id === 'solar') this.solar.visible = on; // --- Solar System hook
+    else if (id === 'constellations') this.constellations.visible = on;
     else if (this.dust.cfg?.id === id) this.dust.visible = on; // --- Dust hook
     else if (this.solar.extra(id)) this.solar.extra(id)!.visible = on; // --- Small bodies hook
     else if (this.cosmo.setVisible(id, on)) { /* --- Cosmography hook */ }
@@ -637,6 +674,12 @@ export class App {
       id: 'solar', title: solarTr('layer.solar'), swatch: 'solar', meta: solarTr('layer.solar.meta'),
       checked: this.solar.visible, opacity: this.solar.opacity, onOpacity: (v) => (this.solar.opacity = v),
     });
+    if (this.constellations.segmentCount > 0) {
+      row({
+        id: 'constellations', title: t('layer.constellations'), swatch: 'constellations', meta: t('layer.constellations.meta'),
+        checked: this.constellations.visible, opacity: 1, onOpacity: () => {},
+      });
+    }
     // --- Small bodies hook: asteroids/comets and satellites rows
     for (const x of this.solar.extras) {
       row({
@@ -704,9 +747,10 @@ export class App {
     this.renderLayerPanel();
     const solarNames = new Set(this.solar.entries.flatMap((e) => [e.name, ...e.alt]).map(normName));
     this.catalog = [...(this.solar.entries as unknown as CatalogEntry[]), ...(this.solar.featureEntries as unknown as CatalogEntry[]), ...entries.filter((e) => !solarNames.has(normName(e.name)))];
+    this.constellations.build(this.catalog);
     await this.initGalaxyShapes();
     this.gw.setEntries(this.catalog); // --- GW hook
-    if (this.gw.events.length) this.renderLayerPanel(); // --- GW hook: its row needs the events
+    if (this.gw.events.length || this.constellations.segmentCount > 0) this.renderLayerPanel(); // --- GW / Constellations rows
     this.buildLabels();
     void this.msg.attachCatalog(this.catalog); // --- Messengers hook: 3D markers now, sky directions join the search later
     void this.cosmo.attachCatalog(this.catalog).then(() => this.buildLabels()); // --- Cosmography hook: 2MRS groups join the search
@@ -875,7 +919,7 @@ export class App {
     }
     this.labels.modelOpacity = this.mwFade * (this.mw.visible ? 1 : 0);
     if (want || this.labels.animating) this.labels.update(this.camera, cam, D, window.innerWidth, window.innerHeight, this.occluders(), dt);
-    if (want || this.selection) this.updateOverlay(cam);
+    if (want || this.selection || this.measurer?.active) this.updateOverlay(cam);
     else if (this.lastOverlayKey !== 'none') this.updateOverlay(cam);
     if (t - this.lastUi > 120) {
       this.lastUi = t;
@@ -934,6 +978,7 @@ export class App {
     this.mwFade = this.mw.update(cam, pxPerRad, this.dpr);
     this.gw.update(cam, D); // --- GW hook
     this.cosmo.update(cam, D, this.dpr); // --- Cosmography hook
+    this.constellations.update(cam, D);
     const ge = AUTO_EXPOSURE.galaxy;
     this.shapes.update({
       cam, camera: this.camera, frustum: this.frustum, pxPerRad, dpr: this.dpr, dt, exposure: this.exposure,
@@ -947,6 +992,10 @@ export class App {
     // --- Black hole hook: environment cube for rays bent out of the frame, then the lensed pipeline
     this.bh?.captureEnv(this.renderer, this.scene, (px, dpr) => this.setSpritePx(cam, px, dpr), () => this.setSpritePx(cam, pxPerRad, this.dpr));
     this.post.render(this.camera, this.skyAmount, this.bh?.lensActive ?? false, this.dust.update(cam, D), cmb); // --- Dust + Messengers hooks
+    if (this.pendingSnapshot) {
+      this.pendingSnapshot = false;
+      this.doCaptureSnapshot(D);
+    }
     this.renders++;
     this.totalRenders++;
     // frames-in-flight cap (WebGPU): count submitted work until the queue reports it done
@@ -1071,7 +1120,7 @@ export class App {
   /** screen rectangles covered by UI (labels avoid them) */
   private occluders(): DOMRect[] {
     const out: DOMRect[] = [];
-    for (const sel of ['.top .search', '#layers', '#info', '#stats', '.instrument', '#tour-player', '#timectl']) {
+    for (const sel of ['.top .search', '#quickjump', '#layers', '#info', '#stats', '.instrument', '#tour-player', '#timectl', '#measure-card']) {
       const el = document.querySelector<HTMLElement>(sel);
       if (!el || el.hidden) continue;
       const r = el.getBoundingClientRect();
@@ -1092,6 +1141,7 @@ export class App {
 
   /** reticle + the selected object's line-of-sight distance error bar (dist_lo → dist_hi) */
   private updateOverlay(cam: Vec3) {
+    this.measurer?.updateOverlay((p) => this.project(p, cam));
     const r = $('reticle');
     const svg = $('errbar') as unknown as SVGSVGElement;
     const s = this.selection;
@@ -1296,14 +1346,24 @@ export class App {
         rows.push([t('row.range'), hiOk ? `${formatRange(ext.distLo, ext.distHi)} (±${fmtFixed(frac * 100, frac < 0.1 ? 1 : 0)} %)` : t('row.noUpper', { d: formatDistance(ext.distLo) })]);
       }
     };
+    let viz: string | null = null;
     if (kind === 'star') {
       if (ext) rows.push([t('row.apparentG'), fmtFixed(ext.mag, 2)], [t('row.bpRp'), isFinite(ext.color) ? fmtFixed(ext.color, 2) : t('common.na')]);
       distRows(t('row.distMedian'));
       if (vel) rows.push(...this.velocityRows(x0, vel, q));
       // absolute magnitude from the measured G and the median distance (no extinction correction)
-      if (ext && isFinite(ext.mag) && dist0 > 0) rows.push([t('row.absoluteG'), fmtFixed(ext.mag - 5 * Math.log10(dist0 / 10), 2)]);
+      if (ext && isFinite(ext.mag) && dist0 > 0) {
+        const absG = ext.mag - 5 * Math.log10(dist0 / 10);
+        rows.push([t('row.absoluteG'), fmtFixed(absG, 2)]);
+        if (isFinite(ext.color)) viz = starHrSvg(ext.color, absG, title);
+      }
     } else {
-      if (ext) rows.push([t('row.apparentMag'), fmtFixed(ext.mag, 2)], [t('row.redshift'), fmtFixed(ext.color, 4)]);
+      if (ext) {
+        rows.push([t('row.apparentMag'), fmtFixed(ext.mag, 2)], [t('row.redshift'), fmtFixed(ext.color, 4)]);
+        if (Number.isFinite(ext.color) && ext.color > 0) {
+          rows.push([t('row.zCmb'), fmtFixed(cmbRestRedshift(ext.color, lb.l, lb.b), 4)]);
+        }
+      }
       distRows(t('row.comoving'));
       rows.push([t('row.lookback'), describeLookback(dist).ago]);
     }
@@ -1330,6 +1390,7 @@ export class App {
       links,
       fly: flyView,
       doc: docSlugFor({ kind: docKind }),
+      viz,
     });
     this.dirty = true;
   }
@@ -1423,6 +1484,19 @@ export class App {
     this.selection = { xyz, title: e.name, fly, ref: { type: 'cat', name: e.name },
       lo: e.dist_lo_pc ?? undefined, hi: e.dist_hi_pc ?? undefined };
     this.infoRefresh = () => this.showCatalogEntry(e);
+    let viz: string | null = null;
+    if (e.kind === 'black_hole' && e.facts?.mass_msun !== undefined) {
+      const mRaw = e.facts.mass_msun;
+      const mVal = typeof mRaw === 'number' ? mRaw : Array.isArray(mRaw) && typeof mRaw[0] === 'number' ? mRaw[0]
+        : typeof mRaw === 'string' ? parseFloat(mRaw.replace(/[^0-9.eE+-]/g, '')) : NaN;
+      if (Number.isFinite(mVal) && mVal > 0) viz = blackHoleScaleSvg(mVal, displayName(e.name));
+    } else if (e.planets?.length) {
+      viz = exoplanetScaleSvg(e.planets);
+    } else if (e.kind === 'star' && e.mag != null && has && e.facts?.bp_rp !== undefined) {
+      const cRaw = e.facts.bp_rp;
+      const cVal = typeof cRaw === 'number' ? cRaw : Array.isArray(cRaw) && typeof cRaw[0] === 'number' ? cRaw[0] : NaN;
+      if (Number.isFinite(cVal)) viz = starHrSvg(cVal, e.mag - 5 * Math.log10(e.dist_pc / 10), displayName(e.name));
+    }
     this.openInfo({
       kind: t(e.kind === 'exoplanet' ? 'kind.planetary_system' : kindInfo(e.kind).label),
       title: displayName(e.name),
@@ -1432,6 +1506,7 @@ export class App {
       links: catalogLinks(e),
       fly,
       doc: e.name === 'Sun' ? 'sun' : docSlugFor(e),
+      viz,
     });
     this.dirty = true;
   }
@@ -1446,7 +1521,10 @@ export class App {
     return { focus: [0, 0, 0], dist: 1e-3, yaw: Math.atan2(-d[1], -d[0]), pitch: Math.asin(-d[2]) };
   }
 
-  private openInfo(o: { kind: string; title: string; italic: boolean; rows: [string, string][]; note: string; links: [string, string][]; fly: Partial<View>; doc?: string }) {
+  private openInfo(o: { kind: string; title: string; italic: boolean; rows: [string, string][]; note: string; links: [string, string][]; fly: Partial<View>; doc?: string; viz?: string | null }) {
+    if (this.measurer?.waitingForB && this.selection) {
+      this.measurer.completeWith({ name: o.title, xyz: this.selection.xyz });
+    }
     $('info-kind').textContent = o.kind;
     $('info').dataset.docs = o.doc ?? ''; // docs slug (content contract section 4) for the docs panel
     const ti = $('info-title');
@@ -1454,6 +1532,9 @@ export class App {
     ti.classList.toggle('galaxy', o.italic);
     this.showInfoDoc(o.doc, o.title);
     ti.append(copyButton(o.title, t('info.copyName', { title: o.title }))); // ids like "Gaia DR3 …" go straight into papers and queries
+    const vizEl = $('info-viz');
+    vizEl.innerHTML = o.viz ?? '';
+    vizEl.hidden = !o.viz;
     const dl = $('info-rows');
     dl.textContent = '';
     const copyable = new Set([t('row.radec'), t('row.galactic')]);
@@ -1484,6 +1565,9 @@ export class App {
       links.appendChild(a);
     }
     $('info-fly').onclick = () => void this.nav.flyTo(o.fly);
+    $('info-measure').onclick = () => {
+      if (this.selection) this.measurer.startFrom({ name: o.title, xyz: this.selection.xyz });
+    };
     this.bh?.infoFor(o.title, $('info-fly').parentElement!, this.nav); // --- Black hole hook: "Experience it" button
     this.solar.infoFor(null, $('info-fly').parentElement!, () => ''); // --- Surface hook: showSolar adds the Photo/Relief switch
     $('info').hidden = false;
@@ -1720,12 +1804,33 @@ export class App {
     });
     window.addEventListener('keydown', (e) => {
       if (document.querySelector('dialog[open]') || this.toursMenu?.isOpen) return;
-      if (e.key === '/' && document.activeElement !== input && !(e.target as HTMLElement).closest('input,textarea,select,[contenteditable]')) {
+      const inField = document.activeElement === input || !!(e.target as HTMLElement).closest('input,textarea,select,[contenteditable]');
+      if (e.key === '/' && !inField) {
         e.preventDefault();
         input.focus();
       }
-      if (e.key === 'Escape' && document.activeElement !== input && !this.docs.isOpen) this.closeInfo();
+      if ((e.key === 'h' || e.key === 'H') && !e.metaKey && !e.ctrlKey && !e.altKey && !inField && !this.docs.isOpen) {
+        e.preventDefault();
+        toggleCleanView();
+      }
+      if (e.key === 'Escape' && document.activeElement !== input && !this.docs.isOpen) {
+        if (document.body.classList.contains('clean-view')) toggleCleanView(false);
+        else if (this.measurer?.active) this.measurer.clear();
+        else this.closeInfo();
+      }
     });
+    $('clean-restore').addEventListener('click', () => toggleCleanView(false));
+    $('photo-btn').addEventListener('click', () => {
+      this.pendingSnapshot = true;
+      this.dirty = true;
+    });
+    $('nightsky-btn').addEventListener('click', () => void this.nightSkyFromHere());
+    this.quickjump = new QuickJumpBar(document.querySelector<HTMLElement>('.top')!);
+    this.quickjump.onPick = (d) => void this.handleQuickDest(d);
+    this.presets = new PresetsBar($('layers-body'));
+    this.presets.onApply = (p) => this.applyPreset(p);
+    this.measurer = new DistanceMeasurer();
+    this.measurer.onChange = () => (this.dirty = true);
     $('docs-btn').addEventListener('click', () => (this.docs.isOpen ? this.docs.close() : void this.docs.open('index')));
 
     // panels above the instrument strip are placed from its measured height (it wraps to two rows
@@ -2375,6 +2480,7 @@ export class App {
     if (this.mwCfg) def[this.mwCfg.id] = this.mwCfg.visible;
     if (this.skyCfg) def[this.skyCfg.id] = this.skyCfg.visible;
     def.solar = true;
+    def.constellations = false;
     Object.assign(def, this.msg.defaults()); // --- Messengers hook
     Object.assign(def, this.cosmo.defaults()); // --- Cosmography hook
     return def;
@@ -2435,6 +2541,67 @@ export class App {
     if (h.sel && JSON.stringify(h.sel) !== JSON.stringify(cur)) void this.restoreSelection(h.sel);
   }
 
+  /** Quick-Jump chip clicked: fly to a landmark, black hole lensing view, or layer */
+  private async handleQuickDest(d: QuickDest) {
+    this.stopTour(false);
+    if (d.action.type === 'focus') {
+      this.focusByName(d.action.name);
+    } else if (d.action.type === 'layer') {
+      await this.showLayer(d.action.id);
+    } else if (d.action.type === 'bh') {
+      await this.loadBlackHoles();
+      const hole = this.bh?.find(d.action.name);
+      if (hole && this.bh) void this.bh.experience(hole, this.nav);
+      else this.focusByName(d.action.name);
+    }
+  }
+
+  /** Curated layer preset selected in the Layers panel */
+  private applyPreset(p: LayerPreset) {
+    if (p.reset) {
+      const def = this.layerDefaults();
+      const cur = this.layerVisibility();
+      for (const [id, on] of Object.entries(def)) if (cur[id] !== on) this.setLayerVisible(id, on);
+    } else {
+      const vis = this.layerVisibility();
+      for (const id of p.show ?? []) if (id in vis && !vis[id]) this.setLayerVisible(id, true);
+      for (const id of p.hide ?? []) if (id in vis && vis[id]) this.setLayerVisible(id, false);
+    }
+    if (p.skyBg && this.msg.bg) void this.msg.bg.set(p.skyBg);
+    if (p.slabMpc !== undefined && p.slabMpc !== this.slabMpc) this.setSlab(p.slabMpc);
+    this.scheduleHash();
+    this.dirty = true;
+  }
+
+  /** Stand above the observer's real-time location on Earth looking straight up at the zenith sky */
+  private async nightSkyFromHere() {
+    this.stopTour(false);
+    if (!this.here && 'geolocation' in navigator) {
+      this.status(t('status.nightskyLocating'));
+      try {
+        const pos = await new Promise<GeolocationPosition>((res, rej) =>
+          navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy: false, timeout: 12000, maximumAge: 600000 }));
+        this.here = { lat: Math.round(pos.coords.latitude * 100) / 100, lon: Math.round(pos.coords.longitude * 100) / 100 };
+      } catch {
+        /* declined or unavailable: Greenwich below, never stored as the viewer's position (Show me uses this.here) */
+      }
+    }
+    const loc = this.here ?? { lat: 51.48, lon: 0 };
+    if (!this.constellations.visible && this.constellations.segmentCount > 0) this.setLayerVisible('constellations', true);
+    if (!this.sky.visible && this.skyCfg) this.setLayerVisible(this.skyCfg.id, true);
+    const view = zenithViewForObserver(loc.lat, loc.lon, this.solar.clock.now());
+    this.status(t(this.here ? 'status.nightsky' : 'status.nightskyGreenwich'), this.here ? 'info' : 'warn');
+    void this.nav.flyTo(view, { durationScale: 0.9 });
+  }
+
+  /** Synchronously capture the rendered canvas right after PostPass.render() */
+  private doCaptureSnapshot(D: number) {
+    const title = this.selection?.title || $('focus-where').textContent || 'Cosmic Atlas';
+    const sub = `${formatDistance(D, 3)}${$('focus-lookback').textContent ? ` · ${$('focus-lookback').textContent}` : ''}`;
+    const ok = captureSnapshot(this.renderer.domElement, { title, subtitle: sub });
+    this.status(t(ok ? 'status.photoSaved' : 'status.photoFailed'), ok ? 'info' : 'warn');
+  }
+
   // ------------------------------------------------------------------ test hooks
 
   /** test / capture hooks (window.__atlas), in their own chunk; waits for the black hole module */
@@ -2445,112 +2612,8 @@ export class App {
   }
 }
 
-function smoothstep(a: number, b: number, x: number) {
-  const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
-  return k * k * (3 - 2 * k);
-}
-
-/** "RA 83.82200°, Dec −5.39100°" or "l 209.010°, b −19.380°" */
-function skyCoordText(c: SkyCoord): string {
-  const sg = (x: number) => `${x < 0 ? '−' : '+'}${fmtFixed(Math.abs(x), 4)}`;
-  return c.frame === 'icrs' ? `RA ${fmtFixed(c.ra, 4)}°, Dec ${sg(c.dec)}°` : `l ${fmtFixed(c.l, 3)}°, b ${sg(c.b)}°`;
-}
-
-/** per-viewer UI preferences (panel open/closed); storage may be blocked, then nothing is remembered */
-function prefGet(k: string): string | null {
-  try {
-    return localStorage.getItem(`ca.${k}`);
-  } catch {
-    return null;
-  }
-}
-function prefSet(k: string, v: string) {
-  try {
-    localStorage.setItem(`ca.${k}`, v);
-  } catch {
-    /* private window or blocked storage */
-  }
-}
-
-/** a small icon button that copies `text` and says so in its tooltip */
-function copyButton(text: string, label: string): HTMLButtonElement {
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'copy-btn';
-  b.title = label;
-  b.setAttribute('aria-label', label);
-  b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>';
-  b.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      b.classList.add('done');
-      b.title = t('info.copied');
-      setTimeout(() => { b.classList.remove('done'); b.title = label; }, 1500);
-    } catch {
-      b.title = t('status.copyFailedPlain');
-    }
-  });
-  return b;
-}
-
-/** a layer's title in the current language (layer.<id>), else the manifest's */
-function layerTitle(c: LayerConfig): string {
-  return tOr(`layer.${c.id}`, c.title);
-}
-
-/** a layer's credit line in the current language (credit.<id>), else the manifest's; undefined if none */
-function layerCredit(c: LayerConfig): string | undefined {
-  return c.credit === undefined ? undefined : tOr(`credit.${c.id}`, c.credit);
-}
-
-/** catalogue names stay as catalogued, except the Sun and the CMB shell (--- Messengers hook), which are translated (contract §1) */
-function displayName(name: string): string {
-  return name === 'Sun' ? t('body.sun') : name === 'CMB' ? t('cmb.label') : name;
-}
-
 /** English names of the Solar System labels, kept so a language switch can rename them again */
 const SOLAR_LABEL_EN = new WeakMap<LabelItem, string>();
-
-/**
- * Numbers written with English separators (src/solar/info.ts) in the current language's form:
- * "6,371 km" → "6 371 km", "0.9896" → "0,9896" for uz/ru. Text without digits is untouched.
- */
-function localNums(s: string): string {
-  const dec = decimalSep();
-  if (dec === '.') return s;
-  return s.replace(/\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+/g, (m) => m.replace(/,/g, ' ').replace('.', dec));
-}
-
-/** Milky Way model label (src/render/milkyway.ts) → i18n key */
-const MW_LABEL_KEYS: Record<string, string> = {
-  '3-kpc arm': 'mw.3kpc', 'Norma arm': 'mw.norma', 'Scutum-Centaurus arm': 'mw.scutum', 'Sagittarius-Carina arm': 'mw.sagittarius',
-  'Local arm': 'mw.local', 'Perseus arm': 'mw.perseus', 'Outer arm': 'mw.outer', 'Galactic bar': 'mw.bar',
-};
-
-function esc(s: string): string {
-  return s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-}
-
-/** where a Sesame distance came from, in the current language */
-function sesameSource(r: Resolved): string {
-  const d = r.distInfo;
-  if (d.method === 'parallax') return t('sesame.parallax', { plx: fmtFixed(d.plx, 3), err: fmtFixed(d.err, 3) });
-  if (d.method === 'redshift') return t('sesame.redshift', { z: fmtFixed(d.z, 5) });
-  if (d.method === 'lowz') return t('sesame.lowz', { z: fmtFixed(d.z, 5) });
-  return t('sesame.none');
-}
-
-/** outbound links of a catalogue entry's info card */
-function catalogLinks(e: CatalogEntry): [string, string][] {
-  const out: [string, string][] = [];
-  if (e.kind === 'exoplanet') out.push([t('link.exoplanetArchive'), `https://exoplanetarchive.ipac.caltech.edu/overview/${encodeURIComponent(e.name)}`]);
-  else if (e.kind === 'gw_event') out.push(...gwLinks(e)); // --- GW hook: GWOSC page and host galaxy, no SIMBAD
-  else if (e.name !== 'Sun' && e.kind !== 'message' && e.kind !== 'seti_signal' && e.kind !== 'cmb')
-    out.push([t('link.simbad'), `https://simbad.cds.unistra.fr/simbad/sim-id?Ident=${encodeURIComponent(e.name)}`]);
-  if (e.doi) out.push([t('link.doi'), `https://doi.org/${e.doi}`]);
-  return out;
-}
 
 // A tab left open across a deploy still runs the old bundle, whose lazy chunks (tours, black hole,
 // …) were replaced by new hashed files. Reload once to pick up the new build; the guard stops a

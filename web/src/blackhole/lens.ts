@@ -64,6 +64,11 @@ export class LensShader {
   readonly uRout = uniform(12);
   readonly uTpeak = uniform(6500);
   readonly uDiskGain = uniform(1);
+  /** dimensionless Kerr spin a* in [0, 0.95] (0 = exact Schwarzschild) */
+  readonly uSpin = uniform(0);
+  /** outer horizon r_+ / r_s (1.0 at a* = 0) and prograde photon orbit r_ph / r_s (1.5 at a* = 0) */
+  readonly uHorizon = uniform(1);
+  readonly uPhoton = uniform(1.5);
   readonly uH = uniform((2 * Math.PI) / 96);
   readonly uCh = uniform(Math.cos((2 * Math.PI) / 96));
   readonly uSh = uniform(Math.sin((2 * Math.PI) / 96));
@@ -151,7 +156,14 @@ export class LensShader {
         const i2 = t.mul(-2.0).add(t.mul(t).mul(t).div(3.0)).add(th.mul(2.5)).sub(sin(th.mul(2.0)).mul(0.25));
         return th.sub(ww.mul(0.5).mul(float(1.0).sub(c).mul(float(1.0).sub(c))).div(c)).add(ww.mul(ww).mul(0.375).mul(i2));
       };
-      const acc = (uu: N) => uu.negate().add(uu.mul(uu).mul(1.5));
+      // Spin is illustrative, not a Kerr ray trace: rays still follow the planar Schwarzschild orbit
+      // equation, with an ad hoc term that weakens bending for prograde rays (bSpin > 0) and strengthens
+      // it for retrograde ones, so the shadow shifts toward the Kerr D-shape. Exactly Schwarzschild at a* = 0.
+      const bSpin = dot(U.uDiskN, cross(e1, e2)).negate();
+      const kBend = float(1.5).sub(U.uSpin.mul(bSpin).mul(0.55));
+      const acc = (uu: N) => uu.negate().add(uu.mul(uu).mul(kBend));
+      const uCap = float(1.0).div(U.uHorizon);
+      const uPh = float(1.0).div(U.uPhoton);
       const herm = (a0: N, b0: N, a1: N, b1: N, t: N) => {
         const t2 = t.mul(t);
         const t3 = t2.mul(t);
@@ -185,7 +197,7 @@ export class LensShader {
             status.assign(0);
             Break();
           });
-          If(u.greaterThan(1.0).or(u.greaterThan(2.0 / 3.0).and(v.greaterThan(0))), () => {
+          If(u.greaterThan(uCap).or(u.greaterThan(uPh).and(v.greaterThan(0))), () => {
             status.assign(1);
             Break();
           });
@@ -213,16 +225,24 @@ export class LensShader {
               If(uc.greaterThan(0), () => {
                 const rc = float(1.0).div(uc).toVar();
                 If(rc.greaterThanEqual(U.uRin).and(rc.lessThanEqual(U.uRout)), () => {
-                  // Novikov–Thorne temperature, physics.ts ntFlux (x = r/M = 2 r)
+                  // Thin-disk temperature: Novikov–Thorne at a* = 0; for a* > 0 a Newtonian zero-torque thin-disk
+                  // profile F ∝ r⁻³ (1 − √(r_in/r)) from the Kerr ISCO, peak-normalised, with an ad hoc warm-up.
                   const x = rc.mul(2.0);
                   const s = sqrt(x);
-                  const lg = log(s.add(S3).mul(S6 - S3).div(s.sub(S3).mul(S6 + S3)));
-                  const F = s.sub(S6).add(lg.mul(S3 / 2)).div(x.sub(3.0).mul(pow(x, 2.5)));
-                  const Te = U.uTpeak.mul(pow(max(F.div(NT_PEAK.F), 0.0), 0.25));
-                  // redshift factor (physics.ts diskRedshift), b_z = −b n·(e1 × e2)
-                  const bz = dot(U.uDiskN, cross(e1, e2)).negate().div(w);
-                  const om = sqrt(float(0.5).div(rc.mul(rc).mul(rc)));
-                  const g = sqrt(float(1.0).sub(float(1.5).div(rc))).div(sf.mul(float(1.0).sub(om.mul(bz))));
+                  const lg = log(s.add(S3).mul(S6 - S3).div(max(s.sub(S3), 1e-4).mul(S6 + S3)));
+                  const fSchw = s.sub(S6).add(lg.mul(S3 / 2)).div(max(x.sub(3.0), 1e-4).mul(pow(x, 2.5))).div(NT_PEAK.F);
+                  const yr = U.uRin.div(rc);
+                  const fKerr = max(float(1.0).sub(sqrt(yr)), 0.0).mul(yr.mul(yr).mul(yr)).div(0.05666);
+                  const fNorm = select(U.uSpin.lessThan(0.001), fSchw, fKerr);
+                  const tBoost = select(U.uSpin.lessThan(0.001), float(1.0), min(pow(float(3.0).div(U.uRin), 0.35), 1.8));
+                  const Te = U.uTpeak.mul(tBoost).mul(pow(max(fNorm, 0.0), 0.25));
+                  // emitter: Kerr equatorial circular-orbit u^t and Ω (Bardeen–Press–Teukolsky 1972); photon side still Schwarzschild
+                  const bz = bSpin.div(w);
+                  const x15 = pow(x, 1.5);
+                  const om = float(2.0).div(x15.add(U.uSpin));
+                  const aOverX15 = U.uSpin.div(x15);
+                  const invUt = sqrt(max(float(1.0).sub(float(3.0).div(x)).add(aOverX15.mul(2.0)), 1e-4)).div(float(1.0).add(aOverX15));
+                  const g = invUt.div(sf.mul(max(float(1.0).sub(om.mul(bz)), 0.05)));
                   tObs.assign(Te.mul(g));
                   gOut.assign(g);
                   status.assign(2);

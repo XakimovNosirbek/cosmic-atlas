@@ -7,7 +7,7 @@ export type LayerGroup = (typeof LAYER_GROUPS)[number];
 
 const BY_ID: Record<string, LayerGroup> = {
   solar: 'solar', 'small-bodies': 'solar', satellites: 'solar',
-  'star-clusters': 'stars', 'milky-way-model': 'stars', dust: 'stars',
+  'star-clusters': 'stars', 'milky-way-model': 'stars', dust: 'stars', constellations: 'stars',
   'local-group': 'galaxies', 'local-volume': 'galaxies',
   'gaia-sky': 'sky', cmb: 'sky', 'gw-volumes': 'sky', frb: 'sky', neutrinos: 'sky',
 };

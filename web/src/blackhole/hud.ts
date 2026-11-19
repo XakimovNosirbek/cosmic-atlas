@@ -7,7 +7,7 @@ import { decimalSep, fmtFixed } from '../i18n';
 import type { Vec3 } from '../math/frames';
 import { fmtSig } from '../objects/facts';
 import type { BlackHole } from './catalog';
-import { C, G0, escapeFraction, hoverAccel, tidalAccel, timeDilation } from './physics';
+import { C, G0, escapeFraction, hoverAccel, kerrHorizon, kerrIsco, tidalAccel, timeDilation } from './physics';
 import { tr } from './strings';
 
 export type Quality = 'low' | 'medium' | 'high';
@@ -35,6 +35,7 @@ export interface HudState {
   diskOn: boolean;
   flammOn: boolean;
   quality: Quality;
+  spin: number;
   atFloor: boolean;
   lensSupported: boolean;
   /** the lensed background is the Gaia all-sky image (the sky as seen from Earth) */
@@ -46,6 +47,7 @@ export class BlackHoleHud {
   onDisk: (on: boolean) => void = () => {};
   onFlamm: (on: boolean) => void = () => {};
   onQuality: (q: Quality) => void = () => {};
+  onSpin: (aStar: number) => void = () => {};
   private tYou = 0;
   private tFar = 0;
   private holeName = '';
@@ -78,6 +80,11 @@ export class BlackHoleHud {
         <label class="check"><input type="checkbox" class="cb-flamm" /> <span class="l-flamm"></span></label>
         <label class="bh-q"><span class="l-q"></span>
           <select class="sel-q"><option value="low"></option><option value="medium"></option><option value="high"></option></select></label>
+        <label class="bh-spin">
+          <span><span class="l-spin"></span> <output class="v-spin"></output></span>
+          <input type="range" class="rng-spin" min="0" max="0.95" step="0.05" value="0" />
+        </label>
+        <p class="fine bh-kerr" hidden></p>
       </div>
       <p class="bh-webgl" hidden></p>
       <details class="bh-about"><summary></summary><p class="fine bh-note"></p></details>`;
@@ -85,6 +92,7 @@ export class BlackHoleHud {
     this.q<HTMLInputElement>('.cb-disk').addEventListener('change', (e) => this.onDisk((e.target as HTMLInputElement).checked));
     this.q<HTMLInputElement>('.cb-flamm').addEventListener('change', (e) => this.onFlamm((e.target as HTMLInputElement).checked));
     this.q<HTMLSelectElement>('.sel-q').addEventListener('change', (e) => this.onQuality((e.target as HTMLSelectElement).value as Quality));
+    this.q<HTMLInputElement>('.rng-spin').addEventListener('input', (e) => this.onSpin(parseFloat((e.target as HTMLInputElement).value)));
     this.relabel();
   }
 
@@ -99,6 +107,7 @@ export class BlackHoleHud {
     this.q('.l-disk').textContent = tr('bh.hud.disk');
     this.q('.l-flamm').textContent = tr('bh.hud.flamm');
     this.q('.l-q').textContent = tr('bh.hud.quality');
+    this.q('.l-spin').textContent = tr('bh.hud.spin');
     this.q('.bh-about summary').textContent = tr('bh.hud.about');
     this.q('.bh-webgl').textContent = tr('bh.hud.webgl');
     const opts = this.q<HTMLSelectElement>('.sel-q').options;
@@ -176,7 +185,24 @@ export class BlackHoleHud {
     if (cbF.checked !== s.flammOn) cbF.checked = s.flammOn;
     const sel = this.q<HTMLSelectElement>('.sel-q');
     if (sel.value !== s.quality) sel.value = s.quality;
-    const note = [tr('bh.hud.static'), extraNote, h.massApprox ? `* ${tr('bh.mass.approx')}` : ''].filter(Boolean).join(' ');
+    const rng = this.q<HTMLInputElement>('.rng-spin');
+    const spStr = s.spin.toFixed(2);
+    if (rng.value !== String(s.spin)) rng.value = String(s.spin);
+    const vSpin = this.q('.v-spin');
+    const spinDisp = fmtFixed(s.spin, 2);
+    if (vSpin.textContent !== spinDisp) vSpin.textContent = spinDisp;
+    const kerrEl = this.q<HTMLElement>('.bh-kerr');
+    const hasSpin = s.spin > 0.001;
+    if (kerrEl.hidden === hasSpin) kerrEl.hidden = !hasSpin;
+    if (hasSpin) {
+      const kTxt = tr('bh.hud.kerrInfo', {
+        rp: fmtFixed(kerrHorizon(s.spin), 2),
+        isco: fmtFixed(kerrIsco(s.spin), 2),
+      });
+      if (kerrEl.textContent !== kTxt) kerrEl.textContent = kTxt;
+    }
+    void spStr;
+    const note = [hasSpin ? tr('bh.hud.kerrNote') : tr('bh.hud.static'), extraNote, h.massApprox ? `* ${tr('bh.mass.approx')}` : ''].filter(Boolean).join(' ');
     const n = this.q('.bh-note');
     if (n.textContent !== note) n.textContent = note;
     const wg = this.q<HTMLElement>('.bh-webgl');

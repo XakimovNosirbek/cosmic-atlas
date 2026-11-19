@@ -77,3 +77,40 @@ export function redshiftFromComoving(dPc: number): number {
   }
   return (lo + hi) / 2;
 }
+
+/**
+ * Planck 2018 I (A&A 641, A1, Table 3) Solar System peculiar velocity relative to the CMB rest frame:
+ *   v_sun = 369.82 ± 0.11 km/s toward Galactic (l, b) = (264.021°, +48.253°).
+ */
+export const CMB_DIPOLE_V_KMS = 369.82;
+export const CMB_DIPOLE_L_DEG = 264.021;
+export const CMB_DIPOLE_B_DEG = 48.253;
+
+const DIP_DEG = Math.PI / 180;
+const DIP_BETA = CMB_DIPOLE_V_KMS / C_KMS;
+const DIP_GAMMA_INV = Math.sqrt(1 - DIP_BETA * DIP_BETA);
+const DIP_APEX_X = Math.cos(CMB_DIPOLE_B_DEG * DIP_DEG) * Math.cos(CMB_DIPOLE_L_DEG * DIP_DEG);
+const DIP_APEX_Y = Math.cos(CMB_DIPOLE_B_DEG * DIP_DEG) * Math.sin(CMB_DIPOLE_L_DEG * DIP_DEG);
+const DIP_APEX_Z = Math.sin(CMB_DIPOLE_B_DEG * DIP_DEG);
+
+/**
+ * Convert a heliocentric redshift z_helio at Galactic coordinates (lDeg, bDeg) to the Planck 2018
+ * CMB rest-frame redshift z_CMB using the exact special-relativistic Doppler boost:
+ *   1 + z_CMB = (1 + z_helio) * (1 + beta cos(theta)) / sqrt(1 - beta^2).
+ */
+export function cmbRestRedshift(zHelio: number, lDeg: number, bDeg: number): number {
+  const l = lDeg * DIP_DEG;
+  const b = bDeg * DIP_DEG;
+  const cosTheta =
+    Math.cos(b) * Math.cos(l) * DIP_APEX_X +
+    Math.cos(b) * Math.sin(l) * DIP_APEX_Y +
+    Math.sin(b) * DIP_APEX_Z;
+  const boost = (1 + DIP_BETA * cosTheta) / DIP_GAMMA_INV;
+  return (1 + zHelio) * boost - 1;
+}
+
+/** Planck 2018 CMB-frame comoving distance in pc (0 for blueshifted objects). */
+export function cmbComovingDistancePc(zHelio: number, lDeg: number, bDeg: number): number {
+  const zCmb = cmbRestRedshift(zHelio, lDeg, bDeg);
+  return zCmb > 0 ? comovingDistancePc(zCmb) : 0;
+}

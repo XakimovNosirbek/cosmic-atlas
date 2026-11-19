@@ -18,6 +18,7 @@ import { MIN_DIST, type NavController, type View } from '../nav/controller';
 import type { Vec3 } from '../math/frames';
 import type { SelRef } from '../state/hash';
 import type { TourPlayer } from './player';
+import { TourSpeech } from './speech';
 import { beatHoles, readMs, resolveBeat, resolveDist, type Beat, type Tour, type TourContext } from './tours';
 
 /** the photon sphere in r_s: the black hole module keeps the camera outside it */
@@ -85,6 +86,7 @@ export class TourRunner {
   private userMoved = false;
   private readonly fadeEl: HTMLElement;
   private fadeOn = false;
+  readonly speech = new TourSpeech();
 
   constructor(private host: TourHost, private player: TourPlayer) {
     player.onPrev = () => this.go(this.index - 1);
@@ -92,6 +94,14 @@ export class TourRunner {
     player.onJump = (i) => this.go(i);
     player.onToggle = () => this.toggle();
     player.onClose = () => this.stop(true);
+    player.onVoice = () => {
+      const on = this.speech.toggle();
+      this.render();
+      if (on && this.tour && !this.paused) {
+        const r = resolveBeat(this.tour.beats[this.index], this.host.context());
+        this.speech.speak(r.title, r.text);
+      }
+    };
     player.onLearn = (slug) => {
       if (!this.paused && !this.ended) this.toggle();
       host.openDoc(slug);
@@ -169,6 +179,7 @@ export class TourRunner {
     if (this.ended) return this.go(this.index);
     if (this.paused && this.userMoved) return this.go(this.index); // the camera moved: fly back to this stop
     this.paused = !this.paused;
+    if (this.paused) this.speech.stop();
     if (this.paused && this.host.nav.flying) {
       this.host.nav.cancelFlight();
       this.userMoved = true;
@@ -182,6 +193,7 @@ export class TourRunner {
     this.userMoved = true;
     if (!this.paused) {
       this.paused = true;
+      this.speech.stop();
       this.render();
     }
   }
@@ -191,6 +203,7 @@ export class TourRunner {
     if (!this.tour) return;
     this.tok++;
     cancelAnimationFrame(this.raf);
+    this.speech.stop();
     const h = this.host;
     h.nav.cancelFlight();
     h.cancelEpoch();
@@ -256,6 +269,7 @@ export class TourRunner {
     this.player.show({
       tour: t.label, title: r.title, text: r.text, index: this.index, count: t.beats.length,
       playing: !this.paused && !this.ended, ended: this.ended, doc: b.doc ?? null,
+      voice: this.speech.enabled, voiceSupported: this.speech.supported,
     });
     if (progress !== undefined) this.player.progress(progress);
   }
@@ -265,6 +279,7 @@ export class TourRunner {
     if (!t) return;
     const tok = ++this.tok;
     cancelAnimationFrame(this.raf);
+    this.speech.stop();
     this.index = i;
     this.userMoved = false;
     const h = this.host;
@@ -308,6 +323,7 @@ export class TourRunner {
     // --- the flight
     h.follow(null);
     const r = resolveBeat(beat, ctx);
+    if (this.speech.enabled) this.speech.speak(r.title, r.text);
     if (holes.length && bh) {
       // real scale down to the photon sphere: lower the navigation floor for the smallest hole of the stop
       const rs = Math.min(...holes.map((n) => bh.find(n)?.rsPc ?? Infinity));

@@ -30,6 +30,12 @@
 .bh-ctl .check { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
 .bh-q { display: inline-flex; align-items: center; gap: 6px; }
 .bh-q select { background: var(--glass-strong); color: var(--ink); border: 1px solid var(--hairline-strong); border-radius: var(--r-ctl); padding: 2px 4px; font: inherit; }
+.bh-spin { flex: 1 0 100%; display: flex; flex-direction: column; gap: 3px; margin-top: 4px; }
+.bh-spin > span { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-dim); }
+.bh-spin output { color: var(--brass-bright); font-variant-numeric: tabular-nums; }
+.bh-spin input[type='range'] { width: 100%; accent-color: var(--brass); }
+.bh-kerr { flex: 1 0 100%; margin: 2px 0 0; font-size: 11.5px; color: var(--brass); }
+.bh-kerr[hidden] { display: none; }
 .bh-note { margin-top: 6px; line-height: 1.45; font-size: 11.5px; }
 .bh-about { margin-top: 8px; font-size: 12px; color: var(--ink-dim); }
 .bh-about summary { cursor: pointer; }

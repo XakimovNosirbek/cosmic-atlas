@@ -19,7 +19,7 @@ import { blackbodyLum } from './blackbody';
 import { blackHolesFrom, skyAxes, type BlackHole } from './catalog';
 import { BlackHoleHud, FlammOverlay, QUALITY_STEPS, type Quality } from './hud';
 import { LensShader } from './lens';
-import { M_PER_PC, X_PHOTON, einsteinAngle } from './physics';
+import { M_PER_PC, X_PHOTON, einsteinAngle, kerrHorizon, kerrIsco, kerrPhotonPrograde } from './physics';
 import { tr } from './strings';
 
 export { tr as bhTr } from './strings';
@@ -62,6 +62,8 @@ export class BlackHoleFeature {
   x = Infinity;
   quality: Quality = 'medium';
   flammOn = true;
+  /** dimensionless Kerr spin a* in [0, 0.95] (0 = exact Schwarzschild) */
+  spin = 0;
   /** set by the app each frame: the lens bends the Gaia all-sky image, i.e. the sky as seen from Earth */
   earthSky = false;
   /** lensing on both backends (WebGL 2: the TSL shader compiled to GLSL, Low by default); ?bhlens=off disables it */
@@ -109,6 +111,10 @@ export class BlackHoleFeature {
       this.onChange();
     };
     this.hud.onQuality = (q) => this.setQuality(q);
+    this.hud.onSpin = (a) => {
+      this.spin = Math.max(0, Math.min(0.95, a));
+      this.onChange();
+    };
     document.body.append(this.flamm.el, this.hud.el);
   }
 
@@ -276,13 +282,16 @@ export class BlackHoleFeature {
     const disk = this.isDiskOn(h);
     L.uDiskOn.value = disk ? 1 : 0;
     L.uDiskN.value.set(...h.disk.n);
-    L.uRin.value = 3;
+    L.uSpin.value = this.spin;
+    L.uHorizon.value = kerrHorizon(this.spin);
+    L.uPhoton.value = kerrPhotonPrograde(this.spin);
+    L.uRin.value = kerrIsco(this.spin);
     L.uRout.value = DISK.rOut;
     L.uTpeak.value = DISK.tPeak;
     L.uDiskGain.value = DISK.level / blackbodyLum(DISK.tPeak);
     const xs = Math.max(x, 1.0001);
     L.uBgGain.value = (disk ? DISK.bgExposure : 1) / ((1 - 1 / xs) * (1 - 1 / xs));
-    const key = `${h.name}|${disk}|${this.quality}|${this.flammOn}`;
+    const key = `${h.name}|${disk}|${this.quality}|${this.flammOn}|${this.spin.toFixed(2)}`;
     if (key !== this.lastKey) {
       this.lastKey = key;
       changed = true;
@@ -291,7 +300,7 @@ export class BlackHoleFeature {
     if (x < HUD_MAX_X) {
       const note = [disk ? `${tr('bh.disk.note', { rout: DISK.rOut, tpeak: DISK.tPeak, name: h.name })} ${tr(h.disk.source)}` : '',
         this.backend === 'WebGL2' && this.lensSupported ? tr('bh.hud.webgl2') : ''].filter(Boolean).join(' ');
-      this.hud.update({ hole: h, x, diskOn: disk, flammOn: this.flammOn, quality: this.quality, atFloor: this.atFloor, lensSupported: this.lensSupported,
+      this.hud.update({ hole: h, x, diskOn: disk, flammOn: this.flammOn, quality: this.quality, spin: this.spin, atFloor: this.atFloor, lensSupported: this.lensSupported,
         earthSky: this.lensActive && this.earthSky }, f.dt, note);
       // Flamm grid: fades in inside ~200 r_s
       const op = this.flammOn ? 1 - smoothstep(80, 250, x) : 0;
