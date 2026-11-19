@@ -828,6 +828,7 @@
   "measure.kyr": "{n} thousand years",
   "measure.myr": "{n} million years",
   "measure.gyr": "{n} billion years",
+  "measure.never": "never, because at this separation space expands at {v} km/s (H₀ · d), faster than the probe",
   "viz.hr.label": "Hertzsprung–Russell diagram",
   "viz.hr.title": "Hertzsprung–Russell diagram (BP−RP vs M_G)",
   "viz.hr.hot": "Hot (blue)",

@@ -828,6 +828,7 @@
   "measure.kyr": "{n} ming yil",
   "measure.myr": "{n} million yil",
   "measure.gyr": "{n} milliard yil",
+  "measure.never": "hech qachon, chunki bu masofada fazo {v} km/s tezlikda kengayadi (H₀ · d), zonddan tezroq",
   "viz.hr.label": "Gershprung–Rassel diagrammasi",
   "viz.hr.title": "Gershprung–Rassel diagrammasi (BP−RP va M_G)",
   "viz.hr.hot": "Issiq (koʻk)",

@@ -2,14 +2,25 @@
  * 3D Distance Measurer (A -> B): lets the user pick any object as Point A and click any second
  * object as Point B to measure true 3D Euclidean separation in Galactic Cartesian space, light
  * travel time, and travel time at Voyager 1's speed (~17 km/s), with a live projected SVG line.
+ * Beyond 1 Mpc the probe never arrives: space between unbound objects expands faster than 17 km/s.
  */
 
 import { fmtFixed, t } from '../i18n';
 import type { Vec3 } from '../math/frames';
+import { H0 } from '../math/cosmology';
 import { formatDistance, formatLightTime, formatLy } from '../math/units';
 
 /** Voyager 1 heliocentric speed (~17.0 km/s) in pc / yr: 17 km/s * 31557600 s/yr / 3.08567758e13 km/pc */
 export const VOYAGER_PC_PER_YR = (17.0 * 31557600) / 3.0856775814913673e13;
+
+/**
+ * Separations above this are in the Hubble flow: the Local Group's zero-velocity surface is at
+ * 0.96 ± 0.03 Mpc (Karachentsev et al. 2009, MNRAS 393, 1265); inside it gravity holds objects
+ * together and space does not expand between them. In pure Hubble flow (Planck18) a probe launched
+ * at 17 km/s could never get more than ~140 kpc (comoving) from its start, so beyond 1 Mpc it never
+ * arrives. Clusters bound over a few Mpc are not modelled.
+ */
+export const BOUND_MAX_PC = 1e6;
 
 export interface MeasurePoint {
   name: string;
@@ -21,6 +32,8 @@ export interface MeasureResult {
   distText: string;
   lightText: string;
   voyagerText: string;
+  /** true when the probe never arrives (separation in the Hubble flow) */
+  voyagerNever: boolean;
 }
 
 /** pure distance & travel-time calculation, exported for unit tests */
@@ -28,6 +41,12 @@ export function computeMeasure(a: Vec3, b: Vec3): MeasureResult {
   const distPc = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
   const distText = formatDistance(distPc, 4);
   const lightText = distPc < 0.05 ? formatLightTime(distPc) : formatLy(distPc) || formatLightTime(distPc);
+  if (distPc > BOUND_MAX_PC) {
+    // recession speed of the separation today, H0 · d (km/s)
+    const v = (H0 * distPc) / 1e6;
+    return { distPc, distText, lightText, voyagerNever: true,
+      voyagerText: t('measure.never', { v: fmtFixed(v, 0) }) };
+  }
   const yrs = distPc / VOYAGER_PC_PER_YR;
   let voyagerText: string;
   if (yrs < 1 / 365.25) voyagerText = t('measure.hours', { n: fmtFixed(yrs * 8766, 1) });
@@ -36,7 +55,7 @@ export function computeMeasure(a: Vec3, b: Vec3): MeasureResult {
   else if (yrs < 1e6) voyagerText = t('measure.kyr', { n: fmtFixed(yrs / 1e3, 1) });
   else if (yrs < 1e9) voyagerText = t('measure.myr', { n: fmtFixed(yrs / 1e6, 2) });
   else voyagerText = t('measure.gyr', { n: fmtFixed(yrs / 1e9, 2) });
-  return { distPc, distText, lightText, voyagerText };
+  return { distPc, distText, lightText, voyagerText, voyagerNever: false };
 }
 
 export class DistanceMeasurer {

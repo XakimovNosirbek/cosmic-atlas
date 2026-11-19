@@ -65,6 +65,19 @@ describe('3D Distance Measurer', () => {
     expect(r.lightText).toBeTruthy();
     // 5 pc at 17 km/s = 5 * 3.0857e13 / (17 * 3.1558e7) = 287,586 yr -> 287.6 kyr
     expect(r.voyagerText).toMatch(/287[.,]6/);
+    expect(r.voyagerNever).toBe(false);
+  });
+
+  it('keeps a travel time inside the Local Group and says "never" in the Hubble flow', () => {
+    // Andromeda, ~765 kpc: bound to the Milky Way, plain d / v (~44 Myr)
+    const m31 = computeMeasure([0, 0, 0], [765e3, 0, 0]);
+    expect(m31.voyagerNever).toBe(false);
+    expect(m31.voyagerText).toMatch(/4[34][.,]\d/);
+    // 1 Gpc: recedes at H0 · d = 67,660 km/s, the probe never arrives
+    const far = computeMeasure([0, 0, 0], [1e9, 0, 0]);
+    expect(far.voyagerNever).toBe(true);
+    expect(far.voyagerText).toMatch(/67[\s,.  ]?660/);
+    expect(far.distPc).toBeCloseTo(1e9, 0);
   });
 });
 
