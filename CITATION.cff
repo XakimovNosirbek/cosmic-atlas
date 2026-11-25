@@ -5,7 +5,7 @@ type: software
 doi: "10.5281/zenodo.24224239"
 authors:
   - alias: ismoilovdevml
-repository-code: "https://github.com/ismoilovdevml/cosmic-atlas"
+repository-code: "https://github.com/bristleconelab/cosmic-atlas"
 url: "https://cosmic.bristleconelab.org/"
 license: MIT
 abstract: >-

@@ -3,7 +3,7 @@
 **A 3D map of the real universe in your browser, from Earth to the cosmic web, built only from open survey data.**
 
 **[Open the atlas →](https://cosmic.bristleconelab.org/)**
-(mirror: [ismoilovdevml.github.io/cosmic-atlas](https://ismoilovdevml.github.io/cosmic-atlas/))
+(mirror: [bristleconelab.github.io/cosmic-atlas](https://bristleconelab.github.io/cosmic-atlas/))
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24224239.svg)](https://doi.org/10.5281/zenodo.24224239)
 
@@ -149,7 +149,7 @@ ones that change what you see:
 ## Run it locally
 
 ```bash
-git clone https://github.com/ismoilovdevml/cosmic-atlas && cd cosmic-atlas/web
+git clone https://github.com/bristleconelab/cosmic-atlas && cd cosmic-atlas/web
 npm ci
 npm run dev        # http://localhost:5173
 ```
@@ -194,3 +194,15 @@ More detail: [web/README.md](web/README.md) (the viewer), [docs/prior-work.md](d
 The code is [MIT](LICENSE). The data keeps its own licences. Gaia is **CC BY-NC 3.0 IGO**, so
 this project is non-commercial. DESI DR1 is CC BY 4.0. The others are listed in each layer's
 `PROVENANCE.json`.
+
+---
+
+<p align="center">
+  <sub>Powered by</sub><br>
+  <a href="https://github.com/bristleconelab">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/img/brand/bristleconelab-horizontal-on-dark.svg">
+      <img src="docs/img/brand/bristleconelab-horizontal-on-light.svg" alt="bristlecone lab" height="36">
+    </picture>
+  </a>
+</p>

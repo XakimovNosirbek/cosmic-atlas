@@ -53,7 +53,7 @@ const UI: Record<Lang, { learn: string; open: string; contents: string; related:
 
 const LOCALE: Record<Lang, string> = { en: 'en_US', uz: 'uz_UZ', ru: 'ru_RU' };
 const SOFTWARE_DOI = '10.5281/zenodo.24224239';
-const REPO = 'https://github.com/ismoilovdevml/cosmic-atlas';
+const REPO = 'https://github.com/bristleconelab/cosmic-atlas';
 
 /** "… (doi:10.1051/…)" → https://doi.org/10.1051/…; a bare https URL is kept */
 export function sourceUrl(source: string): string | null {
