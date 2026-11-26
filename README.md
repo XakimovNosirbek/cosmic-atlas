@@ -3,7 +3,6 @@
 **A 3D map of the real universe in your browser, from Earth to the cosmic web, built only from open survey data.**
 
 **[Open the atlas →](https://cosmic.bristleconelab.org/)**
-(mirror: [bristleconelab.github.io/cosmic-atlas](https://bristleconelab.github.io/cosmic-atlas/))
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24224239.svg)](https://doi.org/10.5281/zenodo.24224239)
 
