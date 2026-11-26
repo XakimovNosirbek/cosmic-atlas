@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ICRS_TO_GAL, mulMat3, type Vec3 } from '../src/math/frames';
 import { ECL_TO_GAL, MU_EARTH, MU_SUN, conicPosition, eclToGal, elementsFromState, periodDays } from '../src/solar/kepler';
+import { fetchJoined } from '../src/solar/smallbodies';
 
 /**
  * Two-body propagation of the packed MPC elements (scripts/build_small_bodies.py) against JPL
@@ -109,5 +110,20 @@ describe('kepler solver', () => {
     let s = 0;
     for (let i = 0; i < 9; i++) s += ECL_TO_GAL[i] ** 2;
     expect(s).toBeCloseTo(3, 12);
+  });
+});
+
+describe('split orbit files (scripts/split_large_tiles.py)', () => {
+  const files: Record<string, Uint8Array> = { 'main.0.bin': new Uint8Array([1, 2, 3]), 'main.1.bin': new Uint8Array([4, 5]), 'neo.bin': new Uint8Array([9]) };
+  const get = (async (url: string) => {
+    const f = files[url.replace('base/', '')];
+    return f ? new Response(f.slice()) : new Response(null, { status: 404 });
+  }) as unknown as typeof fetch;
+  it('joins the parts in order into one buffer', async () => {
+    expect([...new Uint8Array(await fetchJoined('base/', ['main.0.bin', 'main.1.bin'], get))]).toEqual([1, 2, 3, 4, 5]);
+    expect([...new Uint8Array(await fetchJoined('base/', ['neo.bin'], get))]).toEqual([9]);
+  });
+  it('fails when a part is missing', async () => {
+    await expect(fetchJoined('base/', ['main.0.bin', 'main.2.bin'], get)).rejects.toThrow('main.2.bin: HTTP 404');
   });
 });

@@ -59,6 +59,8 @@ const LOAD_WITHIN_PC = 0.05;
 interface ClassMeta {
   id: SbClass;
   file: string;
+  /** set by scripts/split_large_tiles.py when the file is over the 25 MiB a Cloudflare Pages file may have */
+  parts?: string[];
   count: number;
   bytes: number;
   desig?: { chunk: number; files: number };
@@ -70,6 +72,20 @@ export interface SmallBodiesMeta {
   subclasses: Record<string, string[]>;
   total_bytes: number;
   sources?: Record<string, { url: string; file_time_utc: string }>;
+}
+
+/** Fetch files and join them into one buffer (a class split into parts, or a single file). */
+export async function fetchJoined(base: string, files: string[], get: typeof fetch = fetch): Promise<ArrayBuffer> {
+  const bufs = await Promise.all(files.map(async (f) => {
+    const r = await get(`${base}${f}`);
+    if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`);
+    return new Uint8Array(await r.arrayBuffer());
+  }));
+  if (bufs.length === 1) return bufs[0].buffer as ArrayBuffer;
+  const out = new Uint8Array(bufs.reduce((n, b) => n + b.length, 0));
+  let k = 0;
+  for (const b of bufs) { out.set(b, k); k += b.length; }
+  return out.buffer;
 }
 
 interface NameRec {
@@ -228,9 +244,7 @@ export class SmallBodies implements SolarExtra {
       if (!c || c.state !== 'idle') continue;
       c.state = 'loading';
       try {
-        const r = await fetch(`${this.base}${c.meta.file}`);
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const buf = await r.arrayBuffer();
+        const buf = await fetchJoined(this.base, c.meta.parts ?? [c.meta.file]);
         const n = c.meta.count;
         if (buf.byteLength !== n * 29) throw new Error(`size ${buf.byteLength} != ${n * 29}`);
         c.records = new Float32Array(buf, 0, n * 7);

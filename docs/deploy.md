@@ -30,13 +30,16 @@ lose its subtree's light while the overlay still said 100 %. In the 300 MB test 
 25 % of DESI's light. The layer panel shows "lite: N of M points". `_lite.json` in the output
 records what was kept.
 
-`.github/workflows/pages.yml` builds `web/`, runs the tests, sets `VITE_TILE_BASE` from the repo
-variable `TILE_BASE`, checks the Pages limits (1 GB, no file over 95 MB, no symlinks) and uploads
-the Pages artifact. **Tiles are not built in CI.** Either set `TILE_BASE` to an external origin,
+`.github/workflows/deploy.yml` builds `web/`, runs the tests, sets `VITE_TILE_BASE` from the repo
+variable `TILE_BASE`, and deploys to Cloudflare Pages (project `cosmic-atlas`, served at
+https://cosmic.bristleconelab.org). **Tiles are not built in CI.** Either set `TILE_BASE` to an external origin,
 or set `LITE_TILES_URL` to a `.tar.gz` of a lite set (for example a release asset, each under
-2 GiB [^rel]), which the workflow unpacks as `tiles/`. To enable it: Settings → Pages → Source:
-GitHub Actions, then set the variable `PAGES_ENABLED=true` so pushes to `main` deploy. Manual runs
-always work.
+2 GiB [^rel]), which the workflow unpacks as `tiles/`. Cloudflare Pages takes at most 20,000 files of at most
+25 MiB each: `scripts/split_large_tiles.py` cuts the bigger small-bodies orbit files (main-belt asteroids, about
+44 MB) into parts listed in `small-bodies/meta.json`, which the viewer fetches and joins, and the workflow checks
+both limits. It needs the secret `CLOUDFLARE_API_TOKEN` (Cloudflare Pages: Edit) and the variable
+`PAGES_ENABLED=true` so pushes to `main` deploy. Manual runs always work. Until 2026-11-26 the site was also
+published to GitHub Pages, which served the files over 25 MiB; that mirror is retired.
 
 ```bash
 tar -czf cosmic-atlas-lite.tar.gz -C /path/to/lite .     # _index.json must be at the archive root
@@ -62,7 +65,7 @@ B=https://huggingface.co/datasets/ismoilovdev/cosmic-atlas-tiles/resolve/<commit
 tar -czf pages-tiles-vN.tar.gz -C /path/to/lite .
 #    (huggingface_hub upload_file -> pages/pages-tiles-vN.tar.gz; xet sends only changed chunks)
 gh variable set LITE_TILES_URL --body https://huggingface.co/datasets/ismoilovdev/cosmic-atlas-tiles/resolve/<commit>/pages/pages-tiles-vN.tar.gz
-gh workflow run pages.yml
+gh workflow run deploy.yml
 ```
 
 v3 (2026-11-15): 950 MB, Gaia 7.67 M of 39.6 M stars local, DESI 9.2 M of 15.1 M local, the rest

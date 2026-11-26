@@ -30,6 +30,7 @@ else
   "$ROOT/.venv/bin/python" "$ROOT/scripts/make_lite_tiles.py" "$SITE/tiles" --budget-mb 100000 "${args[@]}"
 fi
 rm -f "$SITE/tiles/catalogs/dev-placeholder.json"
+python3 "$ROOT/scripts/split_large_tiles.py" "$SITE/tiles"   # files over 25 MiB -> parts the viewer joins
 "$ROOT/.venv/bin/python" "$ROOT/scripts/write_tiles_index.py" "$SITE/tiles"
 printf '/tiles/*\n  Cache-Control: public, max-age=86400\n' > "$SITE/_headers"
 
