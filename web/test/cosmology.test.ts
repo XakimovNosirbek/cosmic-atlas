@@ -33,4 +33,11 @@ describe('Planck18 at the last scattering surface (CMB shell radius)', () => {
     expect(Math.abs(comovingDistancePc(Z_CMB) / 13884420658.31242 - 1)).toBeLessThan(1e-5);
     expect(Math.abs(lookbackTimeGyr(Z_CMB) / 13.786513101289533 - 1)).toBeLessThan(1e-5);
   });
+  it('a focus on the CMB shell inverts to z = 1090, not the old z = 20 cap', () => {
+    const z = redshiftFromComoving(13884420658.31242);
+    expect(Math.abs(z / Z_CMB - 1)).toBeLessThan(1e-3);
+    expect(Math.abs(lookbackTimeGyr(z) / 13.786513101289533 - 1)).toBeLessThan(1e-5);
+    // beyond z = 20 (10.96 Gpc) the inverse keeps rising instead of sticking at 20
+    expect(redshiftFromComoving(12e9)).toBeGreaterThan(40);
+  });
 });
