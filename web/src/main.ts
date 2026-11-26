@@ -1813,7 +1813,8 @@ export class App {
         e.preventDefault();
         toggleCleanView();
       }
-      if (e.key === 'Escape' && document.activeElement !== input && !this.docs.isOpen) {
+      // e.target, not activeElement: the search box's own Escape handler has already blurred it
+      if (e.key === 'Escape' && e.target !== input && !this.docs.isOpen) {
         if (document.body.classList.contains('clean-view')) toggleCleanView(false);
         else if (this.measurer?.active) this.measurer.clear();
         else this.closeInfo();
