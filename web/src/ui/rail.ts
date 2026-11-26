@@ -51,7 +51,9 @@ export class ScaleRail {
     el.addEventListener('pointercancel', end);
     el.addEventListener('keydown', (e) => {
       const step = e.shiftKey ? 1 : 0.25;
-      const clamp = (v: number) => Math.min(RAIL_MAX, Math.max(RAIL_MIN, v));
+      // the camera can sit outside the rail (2e-13 pc on a planet surface): a step from there must
+      // not snap to the far end, so the bounds widen to include the current value
+      const clamp = (v: number) => Math.min(Math.max(RAIL_MAX, this.value), Math.max(Math.min(RAIL_MIN, this.value), v));
       if (e.key === 'ArrowRight' || e.key === 'ArrowUp') this.onPick(clamp(this.value + step), true);
       else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') this.onPick(clamp(this.value - step), true);
       else if (e.key === 'Home') this.onPick(RAIL_MIN, true);
