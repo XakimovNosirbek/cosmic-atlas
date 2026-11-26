@@ -64,12 +64,20 @@ export function lookbackTimeGyr(z: number): number {
  */
 export const Z_CMB = 1090;
 
-/** Inverse of comovingDistancePc by bisection (monotonic). */
+/**
+ * Inverse of comovingDistancePc by bisection (monotonic). The bracket starts at z = 20 and doubles
+ * while the distance is still farther (z = 20 is only 10.96 Gpc), so a focus on the CMB shell reads
+ * z = 1090; past z = 10240, beyond the last scattering surface, it stops growing.
+ */
 export function redshiftFromComoving(dPc: number): number {
   if (dPc <= 0) return 0;
   let lo = 0;
   let hi = 20;
-  if (comovingDistancePc(hi) < dPc) return hi;
+  while (comovingDistancePc(hi) < dPc) {
+    if (hi >= 1e4) return hi;
+    lo = hi;
+    hi *= 2;
+  }
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2;
     if (comovingDistancePc(mid) < dPc) lo = mid;
